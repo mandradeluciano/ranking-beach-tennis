@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Telinha Online v6 - Ranking Beach Tennis</title>
+  <title>TV Online v7 - Ranking Beach Tennis</title>
   <style>
     :root{
       --bg:#02101f;
@@ -119,6 +119,71 @@
         display:none;
       }
     }
+  
+.header-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:8px;
+}
+.tv-btn{
+  border:none;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
+  border-radius:999px;
+  padding:10px 14px;
+  font-size:0.82rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.tv-btn:hover{ background:rgba(255,255,255,0.18); }
+.view-panel{ display:none; }
+.view-panel.active{ display:block; }
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:12px;
+}
+.stat-card{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:14px;
+}
+.stat-label{
+  font-size:0.78rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.stat-value{
+  font-size:1.55rem;
+  font-weight:800;
+  margin-top:6px;
+}
+.top-list{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.mini-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.mini-table th,.mini-table td{
+  padding:8px 6px;
+  border-bottom:1px solid var(--line);
+  font-size:0.82rem;
+}
+.mode-badge{
+  color:#9fc3ff;
+  font-size:0.8rem;
+  margin-top:6px;
+}
+
   </style>
 </head>
 <body>
@@ -160,31 +225,92 @@
       <div class="empty" id="queueEmpty" style="display:none;">Nenhum confronto na fila.</div>
     </div>
 
-    <div class="ranking card">
-      <h2 style="margin:0;">🏆 Ranking ao vivo</h2>
-      <div class="table-wrap" style="margin-top:8px;">
-        <table id="rankingTable">
-          <thead>
-            <tr>
-              <th>Pos</th>
-              <th>Nome</th>
-              <th>Pts</th>
-              <th>Jgs</th>
-              <th>Vit</th>
-              <th>Der</th>
-              <th>Saldo</th>
-              <th>Var</th>
-              <th>Últimos jogos</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    
+<div class="ranking card">
+      <div id="viewRanking" class="view-panel active">
+        <h2>🏆 Ranking ao vivo</h2>
+        <div class="ranking-table-container">
+          <table id="rankingTable">
+            <thead>
+              <tr>
+                <th class="pos-col">Pos</th>
+                <th>Nome</th>
+                <th class="pts-col">Pts</th>
+                <th class="jogos-col">Jgs</th>
+                <th>Vit</th>
+                <th>Der</th>
+                <th>Saldo</th>
+                <th class="var-col">Var</th>
+                <th>Últimos jogos</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="small footer-note">
+          ▲ subiu · ▼ desceu · ● manteve · últimos jogos: ● verde = vitória, ● vermelho = derrota
+        </div>
       </div>
-      <div class="small">▲ subiu · ▼ desceu · ● manteve</div>
+
+      <div id="viewStats" class="view-panel">
+        <h2>📊 Estatísticas</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Jogadores</div>
+            <div class="stat-value" id="statPlayers">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Partidas</div>
+            <div class="stat-value" id="statMatches">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Na fila</div>
+            <div class="stat-value" id="statQueue">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Média pontos</div>
+            <div class="stat-value" id="statAvg">0</div>
+          </div>
+        </div>
+
+        <div class="top-list">
+          <div class="stat-card">
+            <div class="stat-label">Top 5 ranking</div>
+            <table class="mini-table" id="topFiveTable">
+              <thead><tr><th>#</th><th>Jogador</th><th>Pts</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Mais ativos</div>
+            <table class="mini-table" id="mostActiveTable">
+              <thead><tr><th>#</th><th>Jogador</th><th>Jogos</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewQueue" class="view-panel">
+        <h2>📋 Fila ampliada</h2>
+        <div class="queue-table-container">
+          <table id="queueTableBig">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Dupla AB</th>
+                <th>Dupla CD</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="small footer-note">Visão ampliada da fila para TV, tablet e celular.</div>
+      </div>
     </div>
   </div>
-
   <script>
+
     const DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
     let currentState = null;
     let currentPreview = null;
