@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Telinha Online - Ranking Beach Tennis</title>
+  <title>Telinha Online v6 - Ranking Beach Tennis</title>
   <style>
     :root{
       --bg:#02101f;
@@ -27,7 +27,6 @@
       grid-template-columns:1.2fr 1fr;
       grid-template-areas:
         "header header"
-        "config config"
         "live queue"
         "ranking ranking";
       gap:12px;
@@ -48,11 +47,6 @@
       flex-wrap:wrap;
       padding:14px 16px;
     }
-    .config{
-      grid-area:config;
-      padding:14px;
-      background:var(--panel2);
-    }
     .live{ grid-area:live; padding:14px; background:var(--panel2); }
     .queue{ grid-area:queue; padding:14px; background:var(--panel2); }
     .ranking{ grid-area:ranking; padding:14px; display:flex; flex-direction:column; gap:10px; }
@@ -61,28 +55,6 @@
     .muted{ color:var(--muted); }
     .live-teams{ font-size:clamp(1rem, 2.5vw, 1.45rem); font-weight:700; line-height:1.35; margin-top:8px; }
     .live-score{ font-size:clamp(2rem, 7vw, 3.8rem); font-weight:800; line-height:1; margin-top:8px; }
-    .input-row{
-      display:grid;
-      grid-template-columns:1fr auto auto;
-      gap:8px;
-      align-items:end;
-    }
-    input, button{
-      width:100%;
-      border:none;
-      border-radius:10px;
-      padding:12px;
-      font-size:0.95rem;
-    }
-    input{ background:#fff; color:#0d2236; }
-    button{
-      background:#1677ff;
-      color:#fff;
-      font-weight:700;
-      cursor:pointer;
-      white-space:nowrap;
-    }
-    button.secondary{ background:#5d738b; }
     .status-ok{ color:var(--ok); }
     .status-bad{ color:var(--bad); }
     .status-warn{ color:var(--warn); }
@@ -122,7 +94,6 @@
         grid-template-columns:1fr;
         grid-template-areas:
           "header"
-          "config"
           "live"
           "queue"
           "ranking";
@@ -130,13 +101,12 @@
     }
     @media (max-width: 700px){
       .layout{ padding:10px; gap:10px; }
-      .header,.config,.live,.queue,.ranking{ padding:12px; }
-      .input-row{ grid-template-columns:1fr; }
+      .header,.live,.queue,.ranking{ padding:12px; }
       .hide-mobile{ display:none; }
     }
     @media (max-width: 480px){
       .layout{ padding:8px; gap:8px; }
-      .header,.config,.live,.queue,.ranking{ padding:10px; }
+      .header,.live,.queue,.ranking{ padding:10px; }
       .live-score{ font-size:2.2rem; }
       table{ font-size:0.75rem; }
       th{ font-size:0.66rem; }
@@ -159,26 +129,17 @@
         <div class="small" id="seasonEl">Temporada</div>
       </div>
       <div>
-        <div class="small" id="statusEl">Aguardando configuração do Firebase</div>
+        <div class="small" id="statusEl">Conectado ao ranking online</div>
         <div class="pillbar">
           <div class="pill">100% online</div>
           <div class="pill">Sincronizado</div>
           <div class="pill">Celular / Tablet / TV</div>
+          <div class="pill">Firebase fixo</div>
         </div>
       </div>
     </div>
 
-    <div class="config card">
-      <div class="small muted">Configuração da tela online</div>
-      <div class="input-row" style="margin-top:8px;">
-        <input id="dbUrlInput" type="text" placeholder="Cole a URL do Firebase Realtime Database" />
-        <button onclick="saveDbConfig()">Salvar</button>
-        <button class="secondary" onclick="forceRefresh()">Atualizar agora</button>
-      </div>
-      <div class="small" id="configMsg" style="margin-top:8px;"></div>
-    </div>
-
-    <div class="live card">
+<div class="live card">
       <h2 style="margin:0;">🎾 Jogo em andamento</h2>
       <div class="live-teams" id="liveTeams">Nenhum jogo em andamento</div>
       <div class="live-score" id="liveScore"></div>
@@ -229,7 +190,7 @@
   </div>
 
   <script>
-    const DB_STORAGE_KEY = "bt_tv_database_url_v1";
+    const DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
     let currentState = null;
     let currentPreview = null;
     let currentHeartbeat = null;
@@ -240,31 +201,11 @@
       el.className = "small " + (cls || "");
     }
 
-    function setConfigMsg(text, cls) {
-      const el = document.getElementById("configMsg");
-      el.textContent = text || "";
-      el.className = "small " + (cls || "");
+        function getDbUrlSaved() {
+      return DATABASE_URL;
     }
 
-    function getDbUrlSaved() {
-      const p = new URLSearchParams(window.location.search);
-      const fromQuery = (p.get("db") || "").trim().replace(/\/+$/,"");
-      if (fromQuery) return fromQuery;
-      return (localStorage.getItem(DB_STORAGE_KEY) || "").trim().replace(/\/+$/,"");
-    }
-
-    function saveDbConfig() {
-      const v = (document.getElementById("dbUrlInput").value || "").trim().replace(/\/+$/,"");
-      if (!v) {
-        setConfigMsg("Informe a URL do Firebase.", "status-bad");
-        return;
-      }
-      localStorage.setItem(DB_STORAGE_KEY, v);
-      setConfigMsg("URL salva com sucesso.", "status-ok");
-      forceRefresh();
-    }
-
-    function dbPath(path) {
+        function dbPath(path) {
       const base = getDbUrlSaved();
       if (!base) return "";
       const clean = String(path || "").replace(/^\/+|\/+$/g, "");
@@ -432,7 +373,6 @@
     async function refreshData() {
       try {
         const db = getDbUrlSaved();
-        document.getElementById("dbUrlInput").value = db;
         if (!db) {
           setStatus("Cole a URL do Firebase para iniciar.", "status-warn");
           renderHeader();
@@ -468,7 +408,6 @@
 
     document.addEventListener("DOMContentLoaded", function() {
       const db = getDbUrlSaved();
-      if (db) document.getElementById("dbUrlInput").value = db;
       refreshData();
       setInterval(refreshData, 5000);
     });
