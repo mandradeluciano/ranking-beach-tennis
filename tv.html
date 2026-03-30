@@ -130,12 +130,7 @@
       </div>
       <div>
         <div class="small" id="statusEl">Conectado ao ranking online</div>
-        <div class="pillbar">
-          <div class="pill">100% online</div>
-          <div class="pill">Sincronizado</div>
-          <div class="pill">Celular / Tablet / TV</div>
-          <div class="pill">Firebase fixo</div>
-        </div>
+        
       </div>
     </div>
 
@@ -395,7 +390,7 @@
         renderQueue();
         renderLive();
         renderHeartbeat();
-        setStatus("Online e sincronizado com Firebase.", "status-ok");
+        setStatus("Online", "status-ok");
       } catch (e) {
         console.error(e);
         setStatus("Não consegui ler o Firebase. Confira a URL e as regras.", "status-bad");
