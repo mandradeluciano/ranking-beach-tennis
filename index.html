@@ -434,7 +434,8 @@
       queue: [],
       config: {
         rankingName: "Ranking de Beach Tennis",
-        seasonLabel: SEASON_YEAR.toString()
+        seasonLabel: SEASON_YEAR.toString(),
+        rulesText: ""
       }
     };
 
@@ -495,13 +496,27 @@
     function closeConfig() {
       document.getElementById("configOverlay").style.display = "none";
     }
+
+function __btExtractRulesText() {
+  try {
+    const panel = document.getElementById("rulesPanel");
+    if (!panel) return "";
+    const clone = panel.cloneNode(true);
+    clone.querySelectorAll("button").forEach(btn => btn.remove());
+    const text = (clone.innerText || clone.textContent || "").trim();
+    return text;
+  } catch (e) {
+    return "";
+  }
+}
+
     function saveConfig() {
       const nameInput = document.getElementById("configRankingName");
       const seasonInput = document.getElementById("configSeason");
       const msg = document.getElementById("configMsg");
       const name = (nameInput.value || "Ranking de Beach Tennis").trim();
       const season = (seasonInput.value || SEASON_YEAR.toString()).trim();
-      state.config = { rankingName: name, seasonLabel: season };
+      state.config = { ...(state.config || {}), rankingName: name, seasonLabel: season, rulesText: __btExtractRulesText() };
       saveState();
       applyConfigUI();
       if (msg) {
@@ -1727,6 +1742,7 @@
       const payload = {
         rankingName: state.config?.rankingName || "Ranking de Beach Tennis",
         seasonLabel: state.config?.seasonLabel || "",
+        rulesText: state.config?.rulesText || __btExtractRulesText() || "",
         updatedAt: new Date().toISOString(),
         players: (state.players || []).map(p => ({
           id: p.id,
@@ -1909,6 +1925,8 @@
       const raw = localStorage.getItem("bt_elo_state");
       if (!raw) return null;
       const state = JSON.parse(raw);
+      state.config = state.config || {};
+      state.config.rulesText = state.config.rulesText || __btExtractRulesText() || "";
       return {
         config: state.config || {},
         players: Array.isArray(state.players) ? state.players : [],
@@ -1981,6 +1999,24 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     __btTvStartSyncLoop();
+  });
+</script>
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    try {
+      const raw = localStorage.getItem("bt_elo_state");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.config = parsed.config || {};
+        const extracted = __btExtractRulesText();
+        if (extracted && parsed.config.rulesText !== extracted) {
+          parsed.config.rulesText = extracted;
+          localStorage.setItem("bt_elo_state", JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {}
   });
 </script>
 
