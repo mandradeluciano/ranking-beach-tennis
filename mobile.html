@@ -73,6 +73,51 @@
     @media (max-width: 640px) {
       .row, .score-box { grid-template-columns: 1fr; }
     }
+  
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:9999;
+}
+.modal-backdrop.open{ display:flex; }
+.modal-card{
+  width:min(520px,100%);
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 18px 40px rgba(0,0,0,0.22);
+}
+.modal-title{
+  font-size:1.2rem;
+  font-weight:700;
+  margin-bottom:10px;
+}
+.summary-box{
+  background:#f6f9fc;
+  border:1px solid #d9e3ee;
+  border-radius:12px;
+  padding:14px;
+  margin:12px 0;
+  line-height:1.5;
+}
+.summary-score{
+  font-size:2rem;
+  font-weight:800;
+  text-align:center;
+  margin:10px 0;
+}
+.modal-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+
   </style>
 </head>
 <body>
@@ -80,10 +125,9 @@
     <div class="card">
       <h1>📱 Lançamento da partida</h1>
       <p class="small">
-        Selecione os 4 jogadores e informe o placar final. O computador do ranking importa automaticamente os lançamentos pendentes.
+        Selecione os 4 jogadores, informe o placar final e revise o resumo antes de lançar o resultado.
       </p>
-      <div id="rankingInfo" class="small"></div>
-      <div id="connectionInfo" class="small" style="margin-top:8px;"></div>
+      
     </div>
 
     <div class="card">
@@ -124,7 +168,7 @@
         </p>
       </div>
 
-      <button onclick="submitMatch()">Enviar resultado</button>
+      <button onclick="openConfirmModal()">Revisar resultado</button>
       <button class="secondary" onclick="reloadPlayers()">Atualizar jogadores</button>
       <p id="msg" class="small"></p>
     </div>
@@ -195,13 +239,9 @@
 
     async function loadConfig() {
       const rankingInfo = document.getElementById("rankingInfo");
-      const connectionInfo = document.getElementById("connectionInfo");
       if (!databaseURL) {
-        connectionInfo.textContent = "Esta página precisa receber o parâmetro ?db=URL_DO_FIREBASE.";
-        connectionInfo.className = "small error";
         throw new Error("Sem databaseURL");
       }
-      connectionInfo.textContent = "Banco conectado: " + databaseURL;
       remoteConfig = await apiGet("bt_qr/config");
       players = Array.isArray(remoteConfig?.players) ? remoteConfig.players.slice().sort((a,b) => a.name.localeCompare(b.name)) : [];
       rankingInfo.textContent = remoteConfig
@@ -234,7 +274,6 @@
         const dId = parseInt(document.getElementById("playerD").value);
         const gamesAB = parseInt(document.getElementById("gamesAB").value);
         const gamesCD = parseInt(document.getElementById("gamesCD").value);
-        const submittedBy = (document.getElementById("submittedBy").value || "").trim();
 
         if ([aId,bId,cId,dId].some(v => Number.isNaN(v))) {
           setMsg("Selecione os 4 jogadores.", "error");
@@ -255,26 +294,91 @@
           id: submissionId,
           aId, bId, cId, dId,
           gamesAB, gamesCD,
-          submittedBy,
           submittedAt: new Date().toISOString(),
           status: "pending"
         };
 
         await apiPut("bt_qr/submissions/" + submissionId, payload);
+        closeConfirmModal();
         setMsg("Resultado enviado com sucesso. O computador do ranking deve importar em alguns segundos.", "success");
 
         document.getElementById("gamesAB").value = "6";
         document.getElementById("gamesCD").value = "4";
-        document.getElementById("submittedBy").value = "";
       } catch (e) {
         console.error(e);
         setMsg("Não consegui enviar o resultado. Verifique a conexão e a configuração do QR.", "error");
       }
     }
 
+
+function getPlayerNameById(id) {
+  const p = players.find(x => String(x.id) === String(id));
+  return p ? p.name : "";
+}
+
+function buildSummaryHtml() {
+  const aId = parseInt(document.getElementById("playerA").value);
+  const bId = parseInt(document.getElementById("playerB").value);
+  const cId = parseInt(document.getElementById("playerC").value);
+  const dId = parseInt(document.getElementById("playerD").value);
+  const gamesAB = parseInt(document.getElementById("gamesAB").value);
+  const gamesCD = parseInt(document.getElementById("gamesCD").value);
+
+  return `
+    <strong>Dupla AB</strong><br>
+    ${getPlayerNameById(aId)} & ${getPlayerNameById(bId)}
+    <div class="summary-score">${gamesAB} x ${gamesCD}</div>
+    <strong>Dupla CD</strong><br>
+    ${getPlayerNameById(cId)} & ${getPlayerNameById(dId)}
+  `;
+}
+
+function openConfirmModal() {
+  const aId = parseInt(document.getElementById("playerA").value);
+  const bId = parseInt(document.getElementById("playerB").value);
+  const cId = parseInt(document.getElementById("playerC").value);
+  const dId = parseInt(document.getElementById("playerD").value);
+  const gamesAB = parseInt(document.getElementById("gamesAB").value);
+  const gamesCD = parseInt(document.getElementById("gamesCD").value);
+
+  if ([aId,bId,cId,dId].some(v => Number.isNaN(v))) {
+    setMsg("Selecione os 4 jogadores.", "error");
+    return;
+  }
+  if (new Set([aId,bId,cId,dId]).size !== 4) {
+    setMsg("Os 4 jogadores precisam ser diferentes.", "error");
+    return;
+  }
+  const scoreError = validateScore(gamesAB, gamesCD);
+  if (scoreError) {
+    setMsg(scoreError, "error");
+    return;
+  }
+
+  document.getElementById("confirmSummary").innerHTML = buildSummaryHtml();
+  document.getElementById("confirmModal").classList.add("open");
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirmModal").classList.remove("open");
+}
+
     loadConfig().catch(err => {
       console.error(err);
     });
   </script>
+
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal-card">
+    <div class="modal-title">Confirmar lançamento</div>
+    <div class="small">Revise os jogadores e o placar antes de enviar.</div>
+    <div class="summary-box" id="confirmSummary"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeConfirmModal()">Corrigir</button>
+      <button onclick="submitMatch()">Lançar resultado</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
