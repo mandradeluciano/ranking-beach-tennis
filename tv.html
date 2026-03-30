@@ -405,6 +405,44 @@
   <script>
 
     const DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
+
+function getRulesText(state) {
+  const config = state?.config || {};
+  return config.rules || config.regras || config.rulesText || config.regrasText || "";
+}
+
+function formatRulesHtml(text) {
+  if (!text) return '<div class="rules-empty">Nenhuma regra sincronizada no momento.</div>';
+  let safe = String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  safe = safe.replace(/^###\s?(.*)$/gm, "<h3>$1</h3>");
+  safe = safe.replace(/^##\s?(.*)$/gm, "<h2>$1</h2>");
+  safe = safe.replace(/^#\s?(.*)$/gm, "<h1>$1</h1>");
+  safe = safe.replace(/^\-\s?(.*)$/gm, "• $1");
+  safe = safe.replace(/\n/g, "<br>");
+  return safe;
+}
+
+function renderRules() {
+  const state = currentState || {};
+  const el = document.getElementById("rulesContent");
+  if (!el) return;
+  el.innerHTML = formatRulesHtml(getRulesText(state));
+}
+
+function openRulesModal() {
+  renderRules();
+  const modal = document.getElementById("rulesModal");
+  if (modal) modal.classList.add("open");
+}
+
+function closeRulesModal() {
+  const modal = document.getElementById("rulesModal");
+  if (modal) modal.classList.remove("open");
+}
+
     let currentState = null;
     let currentPreview = null;
     let currentHeartbeat = null;
