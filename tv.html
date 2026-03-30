@@ -1,0 +1,477 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Telinha Online - Ranking Beach Tennis</title>
+  <style>
+    :root{
+      --bg:#02101f;
+      --panel:#03233e;
+      --panel2:#042845;
+      --text:#ffffff;
+      --muted:#a7c6ff;
+      --line:rgba(255,255,255,0.08);
+      --ok:#2ecc71;
+      --bad:#e74c3c;
+      --info:#56a8ff;
+      --warn:#ffcc66;
+      --radius:14px;
+      --shadow:0 10px 24px rgba(0,0,0,0.30);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html,body{ margin:0; min-height:100%; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .layout{
+      display:grid;
+      grid-template-columns:1.2fr 1fr;
+      grid-template-areas:
+        "header header"
+        "config config"
+        "live queue"
+        "ranking ranking";
+      gap:12px;
+      padding:12px;
+      min-height:100vh;
+    }
+    .card{
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      background:var(--panel);
+    }
+    .header{
+      grid-area:header;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:14px 16px;
+    }
+    .config{
+      grid-area:config;
+      padding:14px;
+      background:var(--panel2);
+    }
+    .live{ grid-area:live; padding:14px; background:var(--panel2); }
+    .queue{ grid-area:queue; padding:14px; background:var(--panel2); }
+    .ranking{ grid-area:ranking; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .title{ font-size:clamp(1.15rem, 2.8vw, 1.8rem); font-weight:700; }
+    .small{ font-size:clamp(0.78rem, 1.8vw, 0.95rem); opacity:0.95; }
+    .muted{ color:var(--muted); }
+    .live-teams{ font-size:clamp(1rem, 2.5vw, 1.45rem); font-weight:700; line-height:1.35; margin-top:8px; }
+    .live-score{ font-size:clamp(2rem, 7vw, 3.8rem); font-weight:800; line-height:1; margin-top:8px; }
+    .input-row{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:8px;
+      align-items:end;
+    }
+    input, button{
+      width:100%;
+      border:none;
+      border-radius:10px;
+      padding:12px;
+      font-size:0.95rem;
+    }
+    input{ background:#fff; color:#0d2236; }
+    button{
+      background:#1677ff;
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    button.secondary{ background:#5d738b; }
+    .status-ok{ color:var(--ok); }
+    .status-bad{ color:var(--bad); }
+    .status-warn{ color:var(--warn); }
+    .pillbar{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .pill{
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.05);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:0.78rem;
+    }
+    table{ width:100%; border-collapse:collapse; font-size:clamp(0.78rem, 1.8vw, 0.92rem); }
+    th,td{ padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+    th{
+      text-transform:uppercase;
+      letter-spacing:0.04em;
+      color:var(--muted);
+      font-size:clamp(0.7rem, 1.6vw, 0.82rem);
+      position:sticky;
+      top:0;
+      background:rgba(3,35,62,0.96);
+      z-index:2;
+    }
+    .queue th{ background:rgba(4,40,69,0.96); }
+    .table-wrap{ overflow:auto; -webkit-overflow-scrolling:touch; border-radius:10px; }
+    .first-row{ background:linear-gradient(90deg,#0b5f2a,#0f7b37); font-weight:700; }
+    .last-row{ background:linear-gradient(90deg,#7b1320,#a11c2b); font-weight:700; }
+    .var-up{ color:var(--ok); font-weight:700; }
+    .var-down{ color:var(--bad); font-weight:700; }
+    .var-same{ color:var(--info); font-weight:700; }
+    .streak-dot-win{ color:var(--ok); }
+    .streak-dot-loss{ color:var(--bad); }
+    .empty{ opacity:0.76; padding:12px 0 4px; }
+    .flexcol{ display:flex; flex-direction:column; gap:6px; }
+    @media (max-width: 980px){
+      .layout{
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "header"
+          "config"
+          "live"
+          "queue"
+          "ranking";
+      }
+    }
+    @media (max-width: 700px){
+      .layout{ padding:10px; gap:10px; }
+      .header,.config,.live,.queue,.ranking{ padding:12px; }
+      .input-row{ grid-template-columns:1fr; }
+      .hide-mobile{ display:none; }
+    }
+    @media (max-width: 480px){
+      .layout{ padding:8px; gap:8px; }
+      .header,.config,.live,.queue,.ranking{ padding:10px; }
+      .live-score{ font-size:2.2rem; }
+      table{ font-size:0.75rem; }
+      th{ font-size:0.66rem; }
+      #rankingTable th:nth-child(6),
+      #rankingTable td:nth-child(6),
+      #rankingTable th:nth-child(7),
+      #rankingTable td:nth-child(7),
+      #rankingTable th:nth-child(9),
+      #rankingTable td:nth-child(9){
+        display:none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="header card">
+      <div>
+        <div class="title" id="titleEl">Ranking de Beach Tennis</div>
+        <div class="small" id="seasonEl">Temporada</div>
+      </div>
+      <div>
+        <div class="small" id="statusEl">Aguardando configuração do Firebase</div>
+        <div class="pillbar">
+          <div class="pill">100% online</div>
+          <div class="pill">Sincronizado</div>
+          <div class="pill">Celular / Tablet / TV</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config card">
+      <div class="small muted">Configuração da tela online</div>
+      <div class="input-row" style="margin-top:8px;">
+        <input id="dbUrlInput" type="text" placeholder="Cole a URL do Firebase Realtime Database" />
+        <button onclick="saveDbConfig()">Salvar</button>
+        <button class="secondary" onclick="forceRefresh()">Atualizar agora</button>
+      </div>
+      <div class="small" id="configMsg" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="live card">
+      <h2 style="margin:0;">🎾 Jogo em andamento</h2>
+      <div class="live-teams" id="liveTeams">Nenhum jogo em andamento</div>
+      <div class="live-score" id="liveScore"></div>
+      <div class="small" id="liveInfo"></div>
+      <div class="small" id="liveProjection"></div>
+      <div class="small" id="heartbeatInfo" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="queue card">
+      <h2 style="margin:0;">📋 Próximos jogos</h2>
+      <div class="table-wrap" style="margin-top:8px;">
+        <table id="queueTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Dupla AB</th>
+              <th>Dupla CD</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty" id="queueEmpty" style="display:none;">Nenhum confronto na fila.</div>
+    </div>
+
+    <div class="ranking card">
+      <h2 style="margin:0;">🏆 Ranking ao vivo</h2>
+      <div class="table-wrap" style="margin-top:8px;">
+        <table id="rankingTable">
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Nome</th>
+              <th>Pts</th>
+              <th>Jgs</th>
+              <th>Vit</th>
+              <th>Der</th>
+              <th>Saldo</th>
+              <th>Var</th>
+              <th>Últimos jogos</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="small">▲ subiu · ▼ desceu · ● manteve</div>
+    </div>
+  </div>
+
+  <script>
+    const DB_STORAGE_KEY = "bt_tv_database_url_v1";
+    let currentState = null;
+    let currentPreview = null;
+    let currentHeartbeat = null;
+
+    function setStatus(text, cls) {
+      const el = document.getElementById("statusEl");
+      el.textContent = text || "";
+      el.className = "small " + (cls || "");
+    }
+
+    function setConfigMsg(text, cls) {
+      const el = document.getElementById("configMsg");
+      el.textContent = text || "";
+      el.className = "small " + (cls || "");
+    }
+
+    function getDbUrlSaved() {
+      const p = new URLSearchParams(window.location.search);
+      const fromQuery = (p.get("db") || "").trim().replace(/\/+$/,"");
+      if (fromQuery) return fromQuery;
+      return (localStorage.getItem(DB_STORAGE_KEY) || "").trim().replace(/\/+$/,"");
+    }
+
+    function saveDbConfig() {
+      const v = (document.getElementById("dbUrlInput").value || "").trim().replace(/\/+$/,"");
+      if (!v) {
+        setConfigMsg("Informe a URL do Firebase.", "status-bad");
+        return;
+      }
+      localStorage.setItem(DB_STORAGE_KEY, v);
+      setConfigMsg("URL salva com sucesso.", "status-ok");
+      forceRefresh();
+    }
+
+    function dbPath(path) {
+      const base = getDbUrlSaved();
+      if (!base) return "";
+      const clean = String(path || "").replace(/^\/+|\/+$/g, "");
+      return base + "/" + clean + ".json";
+    }
+
+    async function apiGet(path) {
+      const url = dbPath(path);
+      if (!url) throw new Error("URL do Firebase não configurada.");
+      const res = await fetch(url, { method: "GET", cache: "no-store" });
+      if (!res.ok) throw new Error("Falha ao consultar Firebase.");
+      return await res.json();
+    }
+
+    function getPositionsMap(state) {
+      const map = {};
+      const players = Array.isArray(state?.players) ? [...state.players].sort((a,b) => (b.rating||0) - (a.rating||0)) : [];
+      players.forEach((p, idx) => map[p.id] = idx + 1);
+      return map;
+    }
+
+    function getGamesCount(state, playerId) {
+      return (state.matches || []).filter(m =>
+        m.player_a_id === playerId || m.player_b_id === playerId || m.player_c_id === playerId || m.player_d_id === playerId
+      ).length;
+    }
+
+    function getPlayerStats(state, playerId) {
+      let wins = 0, losses = 0, gf = 0, ga = 0;
+      (state.matches || []).forEach(m => {
+        const inAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const inCD = (m.player_c_id === playerId || m.player_d_id === playerId);
+        if (!inAB && !inCD) return;
+        const gAB = m.games_ab || 0, gCD = m.games_cd || 0;
+        let gFor, gAgainst, win;
+        if (inAB) { gFor = gAB; gAgainst = gCD; win = gAB > gCD; }
+        else { gFor = gCD; gAgainst = gAB; win = gCD > gAB; }
+        gf += gFor; ga += gAgainst;
+        if (win) wins++; else losses++;
+      });
+      return { wins, losses, saldo: gf - ga };
+    }
+
+    function getLastFiveResults(state, playerId) {
+      const matches = (state.matches || [])
+        .filter(m => m.player_a_id === playerId || m.player_b_id === playerId || m.player_c_id === playerId || m.player_d_id === playerId)
+        .sort((a,b) => (a.id||0) - (b.id||0))
+        .slice(-5);
+      return matches.map(m => {
+        const isAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const winnerAB = m.winner_side === "AB";
+        const win = (isAB && winnerAB) || (!isAB && !winnerAB);
+        return win ? '<span class="streak-dot-win">●</span>' : '<span class="streak-dot-loss">●</span>';
+      }).join(" ");
+    }
+
+    function renderHeader() {
+      const title = currentState?.config?.rankingName || "Ranking de Beach Tennis";
+      const season = currentState?.config?.seasonLabel || "-";
+      document.getElementById("titleEl").textContent = title;
+      document.getElementById("seasonEl").textContent = "Temporada " + season;
+    }
+
+    function renderRanking() {
+      const tbody = document.querySelector("#rankingTable tbody");
+      tbody.innerHTML = "";
+      const players = Array.isArray(currentState?.players) ? [...currentState.players].sort((a,b) => (b.rating||0) - (a.rating||0)) : [];
+      const lastPos = currentState?.lastPositions || {};
+
+      if (!players.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan='9' style='text-align:center; opacity:0.75;'>Sem jogadores sincronizados ainda.</td>";
+        tbody.appendChild(tr);
+        return;
+      }
+
+      players.forEach((p, idx) => {
+        const pos = idx + 1;
+        let varHtml = '<span class="var-same">●</span>';
+        if (lastPos[p.id]) {
+          const delta = lastPos[p.id] - pos;
+          if (delta > 0) varHtml = '<span class="var-up">▲</span>';
+          else if (delta < 0) varHtml = '<span class="var-down">▼</span>';
+        }
+        const stats = getPlayerStats(currentState, p.id);
+        const jogos = getGamesCount(currentState, p.id);
+        const tr = document.createElement("tr");
+        if (idx === 0) tr.classList.add("first-row");
+        if (idx === players.length - 1) tr.classList.add("last-row");
+        tr.innerHTML =
+          "<td>" + pos + "</td>" +
+          "<td>" + (p.name || "-") + "</td>" +
+          "<td>" + Number(p.rating || 0).toFixed(0) + "</td>" +
+          "<td>" + jogos + "</td>" +
+          "<td>" + stats.wins + "</td>" +
+          "<td>" + stats.losses + "</td>" +
+          "<td>" + stats.saldo + "</td>" +
+          "<td>" + varHtml + "</td>" +
+          "<td>" + getLastFiveResults(currentState, p.id) + "</td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderQueue() {
+      const tbody = document.querySelector("#queueTable tbody");
+      const empty = document.getElementById("queueEmpty");
+      tbody.innerHTML = "";
+      const queue = Array.isArray(currentState?.queue) ? currentState.queue : [];
+      const players = Array.isArray(currentState?.players) ? currentState.players : [];
+      const posMap = getPositionsMap(currentState || {});
+      if (!queue.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+      queue.forEach((q, idx) => {
+        const a = players.find(p => p.id === q.aId);
+        const b = players.find(p => p.id === q.bId);
+        const c = players.find(p => p.id === q.cId);
+        const d = players.find(p => p.id === q.dId);
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + (idx + 1) + "</td>" +
+          "<td>" + (a ? "(" + (posMap[a.id] || "-") + ") " + a.name : "?") + " & " + (b ? "(" + (posMap[b.id] || "-") + ") " + b.name : "?") + "</td>" +
+          "<td>" + (c ? "(" + (posMap[c.id] || "-") + ") " + c.name : "?") + " & " + (d ? "(" + (posMap[d.id] || "-") + ") " + d.name : "?") + "</td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderLive() {
+      const teams = document.getElementById("liveTeams");
+      const score = document.getElementById("liveScore");
+      const info = document.getElementById("liveInfo");
+      const proj = document.getElementById("liveProjection");
+      if (!currentPreview) {
+        teams.textContent = "Nenhum jogo em andamento";
+        score.textContent = "";
+        info.textContent = "";
+        proj.textContent = "";
+        return;
+      }
+      teams.textContent = (currentPreview.duplaAB || "Dupla AB") + "  vs  " + (currentPreview.duplaCD || "Dupla CD");
+      score.textContent = (currentPreview.gamesAB ?? 0) + " x " + (currentPreview.gamesCD ?? 0);
+      info.textContent = currentPreview.scoreCategory && currentPreview.scoreCategory !== "-"
+        ? "Categoria: " + currentPreview.scoreCategory
+        : "Partida em andamento";
+      if (Number.isFinite(currentPreview.deltaAB) && Number.isFinite(currentPreview.deltaCD)) {
+        proj.textContent = "Projeção: AB " + (currentPreview.deltaAB >= 0 ? "+" : "") + Number(currentPreview.deltaAB).toFixed(1) +
+          " pts · CD " + (currentPreview.deltaCD >= 0 ? "+" : "") + Number(currentPreview.deltaCD).toFixed(1) + " pts";
+      } else {
+        proj.textContent = "";
+      }
+    }
+
+    function renderHeartbeat() {
+      const hb = document.getElementById("heartbeatInfo");
+      if (!currentHeartbeat?.updatedAt) {
+        hb.textContent = "Sem heartbeat do ranking ainda.";
+        return;
+      }
+      const dt = new Date(currentHeartbeat.updatedAt);
+      hb.textContent = "Última sincronização do ranking: " + dt.toLocaleString("pt-BR");
+    }
+
+    async function refreshData() {
+      try {
+        const db = getDbUrlSaved();
+        document.getElementById("dbUrlInput").value = db;
+        if (!db) {
+          setStatus("Cole a URL do Firebase para iniciar.", "status-warn");
+          renderHeader();
+          renderRanking();
+          renderQueue();
+          renderLive();
+          renderHeartbeat();
+          return;
+        }
+        const [state, preview, heartbeat] = await Promise.all([
+          apiGet("bt_tv/state"),
+          apiGet("bt_tv/current_match_preview"),
+          apiGet("bt_tv/heartbeat")
+        ]);
+        currentState = state;
+        currentPreview = preview;
+        currentHeartbeat = heartbeat;
+        renderHeader();
+        renderRanking();
+        renderQueue();
+        renderLive();
+        renderHeartbeat();
+        setStatus("Online e sincronizado com Firebase.", "status-ok");
+      } catch (e) {
+        console.error(e);
+        setStatus("Não consegui ler o Firebase. Confira a URL e as regras.", "status-bad");
+      }
+    }
+
+    function forceRefresh() {
+      refreshData();
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const db = getDbUrlSaved();
+      if (db) document.getElementById("dbUrlInput").value = db;
+      refreshData();
+      setInterval(refreshData, 5000);
+    });
+  </script>
+</body>
+</html>

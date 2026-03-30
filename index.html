@@ -1867,5 +1867,122 @@
   });
 </script>
 
+
+<script>
+  const BT_QR_STORAGE_KEY_FALLBACK = "bt_qr_sync_config_v1";
+  let __btTvSyncTimer = null;
+
+  function __btTvLoadConfig() {
+    try {
+      if (typeof loadQrConfig === "function") return loadQrConfig();
+    } catch (e) {}
+    try {
+      const raw = localStorage.getItem(BT_QR_STORAGE_KEY_FALLBACK);
+      return raw ? JSON.parse(raw) : { databaseURL: "" };
+    } catch (e) {
+      return { databaseURL: "" };
+    }
+  }
+
+  function __btTvDbUrl(path) {
+    const cfg = __btTvLoadConfig();
+    const databaseURL = (cfg?.databaseURL || "").trim().replace(/\/+$/,"");
+    if (!databaseURL) return "";
+    const cleanPath = String(path || "").replace(/^\/+|\/+$/g, "");
+    return databaseURL + "/" + cleanPath + ".json";
+  }
+
+  async function __btTvPut(path, data) {
+    const url = __btTvDbUrl(path);
+    if (!url) return;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Falha ao sincronizar tela online.");
+    return await res.json();
+  }
+
+  function __btTvSlimState() {
+    try {
+      const raw = localStorage.getItem("bt_elo_state");
+      if (!raw) return null;
+      const state = JSON.parse(raw);
+      return {
+        config: state.config || {},
+        players: Array.isArray(state.players) ? state.players : [],
+        matches: Array.isArray(state.matches) ? state.matches : [],
+        queue: Array.isArray(state.queue) ? state.queue : [],
+        lastPositions: state.lastPositions || {},
+        updatedAt: new Date().toISOString()
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function __btTvPreview() {
+    try {
+      const raw = localStorage.getItem("bt_current_match_preview");
+      if (!raw) return null;
+      const preview = JSON.parse(raw);
+      preview.updatedAt = new Date().toISOString();
+      return preview;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function __btTvSyncNow(silent) {
+    try {
+      const cfg = __btTvLoadConfig();
+      if (!cfg?.databaseURL) return;
+      const state = __btTvSlimState();
+      await __btTvPut("bt_tv/state", state || { empty: true, updatedAt: new Date().toISOString() });
+      await __btTvPut("bt_tv/current_match_preview", __btTvPreview());
+      await __btTvPut("bt_tv/heartbeat", {
+        updatedAt: new Date().toISOString(),
+        source: "ranking_principal"
+      });
+      if (!silent) console.log("TV online sincronizada com Firebase.");
+    } catch (e) {
+      if (!silent) console.error(e);
+    }
+  }
+
+  function __btTvStartSyncLoop() {
+    if (__btTvSyncTimer) clearInterval(__btTvSyncTimer);
+    __btTvSyncTimer = setInterval(function(){ __btTvSyncNow(true); }, 5000);
+    setTimeout(function(){ __btTvSyncNow(true); }, 1200);
+  }
+
+  const __btTvOriginalSaveState = typeof saveState === "function" ? saveState : null;
+  if (__btTvOriginalSaveState) {
+    saveState = function() {
+      __btTvOriginalSaveState();
+      __btTvSyncNow(true);
+    };
+  }
+
+  const __btTvOriginalRenderLiveProjection = typeof renderLiveProjection === "function" ? renderLiveProjection : null;
+  if (__btTvOriginalRenderLiveProjection) {
+    renderLiveProjection = function() {
+      __btTvOriginalRenderLiveProjection();
+      __btTvSyncNow(true);
+    };
+  }
+
+  window.addEventListener("storage", function(ev) {
+    if (ev.key === "bt_elo_state" || ev.key === "bt_current_match_preview" || ev.key === BT_QR_STORAGE_KEY_FALLBACK) {
+      __btTvSyncNow(true);
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", function() {
+    __btTvStartSyncLoop();
+  });
+</script>
+
 </body>
 </html>
