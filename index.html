@@ -144,6 +144,8 @@
   </p>
 
   <div class="top-buttons">
+    <button class="small danger" onclick="resetRanking()">🔄 Resetar Ranking</button>
+    <button class="small danger" onclick="clearAllData()">💀 Limpar Tudo</button>
     <button class="small secondary" onclick="openRules()">📜 Regras</button>
     <button class="small secondary" onclick="openCadastro()">👤 Cadastro</button>
     <button class="small secondary" onclick="openBackup()">💾 Backup</button>
@@ -1506,7 +1508,48 @@ function __btExtractRulesText() {
     renderMatches();
     renderQueue();
     renderGeneratorPlayers();
-  </script>
+  
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
+</script>
 
 <style>
   .qr-sync-card {
@@ -1881,6 +1924,47 @@ function __btExtractRulesText() {
     restartQrPolling();
     setTimeout(() => processQrPendingNow(true), 1200);
   });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
 </script>
 
 
@@ -2000,6 +2084,47 @@ function __btExtractRulesText() {
   document.addEventListener("DOMContentLoaded", function() {
     __btTvStartSyncLoop();
   });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
 </script>
 
 
@@ -2018,6 +2143,47 @@ function __btExtractRulesText() {
       }
     } catch (e) {}
   });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
 </script>
 
 </body>
