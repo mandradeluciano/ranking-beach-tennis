@@ -1,0 +1,1151 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TV Online v14 - Ranking Beach Tennis</title>
+  <style>
+    :root{
+      --bg:#02101f;
+      --panel:#03233e;
+      --panel2:#042845;
+      --text:#ffffff;
+      --muted:#a7c6ff;
+      --line:rgba(255,255,255,0.08);
+      --ok:#2ecc71;
+      --bad:#e74c3c;
+      --info:#56a8ff;
+      --warn:#ffcc66;
+      --radius:14px;
+      --shadow:0 10px 24px rgba(0,0,0,0.30);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html,body{ margin:0; min-height:100%; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .layout{
+      display:grid;
+      grid-template-columns:1.2fr 1fr;
+      grid-template-areas:
+        "header header"
+        "live queue"
+        "ranking ranking";
+      gap:12px;
+      padding:12px;
+      min-height:100vh;
+    }
+    .card{
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      background:var(--panel);
+    }
+    .header{
+      grid-area:header;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      padding:14px 16px;
+    }
+    .live{ grid-area:live; padding:14px; background:var(--panel2); }
+    .queue{ grid-area:queue; padding:14px; background:var(--panel2); }
+    .ranking{ grid-area:ranking; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .title{ font-size:clamp(1.15rem, 2.8vw, 1.8rem); font-weight:700; }
+    .small{ font-size:clamp(0.78rem, 1.8vw, 0.95rem); opacity:0.95; }
+    .muted{ color:var(--muted); }
+    .live-teams{ font-size:clamp(1rem, 2.5vw, 1.45rem); font-weight:700; line-height:1.35; margin-top:8px; }
+    .live-score{ font-size:clamp(2rem, 7vw, 3.8rem); font-weight:800; line-height:1; margin-top:8px; }
+    .status-ok{ color:var(--ok); }
+    .status-bad{ color:var(--bad); }
+    .status-warn{ color:var(--warn); }
+    .pillbar{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .pill{
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.05);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:0.78rem;
+    }
+    table{ width:100%; border-collapse:collapse; font-size:clamp(0.78rem, 1.8vw, 0.92rem); }
+    th,td{ padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+    th{
+      text-transform:uppercase;
+      letter-spacing:0.04em;
+      color:var(--muted);
+      font-size:clamp(0.7rem, 1.6vw, 0.82rem);
+      position:sticky;
+      top:0;
+      background:rgba(3,35,62,0.96);
+      z-index:2;
+    }
+    .queue th{ background:rgba(4,40,69,0.96); }
+    .table-wrap{ overflow:auto; -webkit-overflow-scrolling:touch; border-radius:10px; }
+    .first-row{ background:linear-gradient(90deg,#0b5f2a,#0f7b37); font-weight:700; }
+    .last-row{ background:linear-gradient(90deg,#7b1320,#a11c2b); font-weight:700; }
+    .var-up{ color:var(--ok); font-weight:700; }
+    .var-down{ color:var(--bad); font-weight:700; }
+    .var-same{ color:var(--info); font-weight:700; }
+    .streak-dot-win{ color:var(--ok); }
+    .streak-dot-loss{ color:var(--bad); }
+    .empty{ opacity:0.76; padding:12px 0 4px; }
+    .flexcol{ display:flex; flex-direction:column; gap:6px; }
+    @media (max-width: 980px){
+      .layout{
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "header"
+          "live"
+          "queue"
+          "ranking";
+      }
+    }
+    @media (max-width: 700px){
+      .layout{ padding:10px; gap:10px; }
+      .header,.live,.queue,.ranking{ padding:12px; }
+      .hide-mobile{ display:none; }
+    }
+    @media (max-width: 480px){
+      .layout{ padding:8px; gap:8px; }
+      .header,.live,.queue,.ranking{ padding:10px; }
+      .live-score{ font-size:2.2rem; }
+      table{ font-size:0.75rem; }
+      th{ font-size:0.66rem; }
+      #rankingTable th:nth-child(6),
+      #rankingTable td:nth-child(6),
+      #rankingTable th:nth-child(7),
+      #rankingTable td:nth-child(7),
+      #rankingTable th:nth-child(9),
+      #rankingTable td:nth-child(9){
+        display:none;
+      }
+    }
+  
+.header-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  margin-top:8px;
+}
+.tv-btn{
+  border:none;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
+  border-radius:999px;
+  padding:10px 14px;
+  font-size:0.82rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.tv-btn:hover{ background:rgba(255,255,255,0.18); }
+.view-panel{ display:none; }
+.view-panel.active{ display:block; }
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:12px;
+}
+.stat-card{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:14px;
+}
+.stat-label{
+  font-size:0.78rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.stat-value{
+  font-size:1.55rem;
+  font-weight:800;
+  margin-top:6px;
+}
+.top-list{
+  margin-top:14px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.mini-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.mini-table th,.mini-table td{
+  padding:8px 6px;
+  border-bottom:1px solid var(--line);
+  font-size:0.82rem;
+}
+.mode-badge{
+  color:#9fc3ff;
+  font-size:0.8rem;
+  margin-top:6px;
+}
+
+  
+.online-row{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.rules-icon-btn{
+  width:38px;
+  height:38px;
+  border:none;
+  border-radius:999px;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
+  font-size:1rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.rules-icon-btn:hover{
+  background:rgba(255,255,255,0.18);
+}
+.rules-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index:9999;
+}
+.rules-modal.open{ display:flex; }
+.rules-modal-card{
+  width:min(900px, 100%);
+  max-height:88vh;
+  overflow:auto;
+  background:#062038;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  box-shadow:0 20px 40px rgba(0,0,0,0.35);
+  padding:18px;
+}
+.rules-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.rules-modal-title{
+  font-size:1.2rem;
+  font-weight:800;
+}
+.rules-close-btn{
+  border:none;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
+  border-radius:999px;
+  padding:10px 14px;
+  cursor:pointer;
+  font-weight:700;
+}
+.rules-content{
+  line-height:1.6;
+  color:#eaf4ff;
+  font-size:0.95rem;
+  white-space:pre-wrap;
+}
+.rules-content h1,.rules-content h2,.rules-content h3{
+  margin:0 0 8px 0;
+  color:#fff;
+}
+.rules-empty{
+  color:#b7d5ff;
+  opacity:0.9;
+}
+
+.launch-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.65);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index:10000;
+}
+.launch-modal.open{ display:flex; }
+.launch-modal-card{
+  width:min(720px, 100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#062038;
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:16px;
+  box-shadow:0 20px 40px rgba(0,0,0,0.35);
+  padding:18px;
+}
+.launch-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.launch-box{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:12px;
+}
+.launch-box label{
+  display:block;
+  margin-top:8px;
+  font-size:0.86rem;
+  color:#d9e9ff;
+}
+.launch-box select,
+.launch-box input{
+  width:100%;
+  margin-top:6px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+}
+.launch-box option{ color:#000; }
+.launch-score-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.launch-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+.launch-msg{
+  margin-top:10px;
+  color:#b7d5ff;
+}
+@media (max-width: 700px){
+  .launch-grid,.launch-score-grid{ grid-template-columns:1fr; }
+}
+
+
+.recent-launches{ margin-top:14px; }
+.recent-launches h3{ margin:0 0 8px 0; font-size:1rem; }
+.recent-launches-list{ display:flex; flex-direction:column; gap:8px; }
+.recent-item{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:10px 12px;
+}
+.recent-item-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  font-weight:700;
+}
+.recent-item-meta{
+  margin-top:4px;
+  font-size:0.8rem;
+  color:var(--muted);
+}
+
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="header card">
+      <div>
+        <div class="title" id="titleEl">Ranking de Beach Tennis</div>
+        <div class="small" id="seasonEl">Temporada</div>
+      </div>
+      <div>
+        <div class="small" id="statusEl">Conectado ao ranking online</div>
+        <div class="header-actions">
+          <button class="tv-btn" type="button" onclick="openRulesModal()">📜 Regras</button>
+          <button class="tv-btn" type="button" onclick="openLaunchModal()">➕ Lançar resultado</button>
+        </div>
+      </div>
+    </div>
+
+<div class="live card">
+      <h2 style="margin:0;">🎾 Jogo em andamento</h2>
+      <div class="live-teams" id="liveTeams">Nenhum jogo em andamento</div>
+      <div class="live-score" id="liveScore"></div>
+      <div class="small" id="liveInfo"></div>
+      <div class="small" id="liveProjection"></div>
+      <div class="small" id="heartbeatInfo" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="queue card">
+      <h2 style="margin:0;">📋 Próximos jogos</h2>
+      <div class="table-wrap" style="margin-top:8px;">
+        <table id="queueTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Dupla AB</th>
+              <th>Dupla CD</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty" id="queueEmpty" style="display:none;">Nenhum confronto na fila.</div>
+    </div>
+
+    
+<div class="ranking card">
+      <div id="viewRanking" class="view-panel active">
+        <h2>🏆 Ranking ao vivo</h2>
+        <div class="ranking-table-container">
+          <table id="rankingTable">
+            <thead>
+              <tr>
+                <th class="pos-col">Pos</th>
+                <th>Nome</th>
+                <th class="pts-col">Pts</th>
+                <th class="jogos-col">Jgs</th>
+                <th>Vit</th>
+                <th>Der</th>
+                <th>Saldo</th>
+                <th class="var-col">Var</th>
+                <th>Últimos jogos</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="small footer-note">
+          ▲ subiu · ▼ desceu · ● manteve · últimos jogos: ● verde = vitória, ● vermelho = derrota
+        </div>
+
+        <div class="recent-launches">
+          <h3>🕒 Últimos lançamentos</h3>
+          <div class="recent-launches-list" id="recentLaunchesList"></div>
+          <div class="small muted" id="recentLaunchesEmpty" style="display:none;">Nenhum lançamento registrado ainda.</div>
+        </div>
+      </div>
+
+      <div id="viewStats" class="view-panel">
+        <h2>📊 Estatísticas</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Jogadores</div>
+            <div class="stat-value" id="statPlayers">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Partidas</div>
+            <div class="stat-value" id="statMatches">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Na fila</div>
+            <div class="stat-value" id="statQueue">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Média pontos</div>
+            <div class="stat-value" id="statAvg">0</div>
+          </div>
+        </div>
+
+        <div class="top-list">
+          <div class="stat-card">
+            <div class="stat-label">Top 5 ranking</div>
+            <table class="mini-table" id="topFiveTable">
+              <thead><tr><th>#</th><th>Jogador</th><th>Pts</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Mais ativos</div>
+            <table class="mini-table" id="mostActiveTable">
+              <thead><tr><th>#</th><th>Jogador</th><th>Jogos</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewQueue" class="view-panel">
+        <h2>📋 Fila ampliada</h2>
+        <div class="queue-table-container">
+          <table id="queueTableBig">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Dupla AB</th>
+                <th>Dupla CD</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="small footer-note">Visão ampliada da fila para TV, tablet e celular.</div>
+      </div>
+    </div>
+  </div>
+
+<div class="rules-modal" id="rulesModal">
+  <div class="rules-modal-card">
+    <div class="rules-modal-head">
+      <div class="rules-modal-title">Regras do Ranking</div>
+      <button class="rules-close-btn" id="btnCloseRules">Fechar</button>
+    </div>
+    <div class="rules-content" id="rulesContent">
+      <div class="rules-empty">Nenhuma regra sincronizada no momento.</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="launch-modal" id="launchModal">
+  <div class="launch-modal-card">
+    <div class="rules-modal-head">
+      <div class="rules-modal-title">Lançar resultado</div>
+      <button class="rules-close-btn" onclick="closeLaunchModal()">Fechar</button>
+    </div>
+    <div class="small">Selecione os 4 jogadores e informe o placar final.</div>
+
+    <div class="launch-grid" style="margin-top:12px;">
+      <div class="launch-box">
+        <strong>Dupla AB</strong>
+        <label>Jogador A</label>
+        <select id="launchPlayerA"></select>
+        <label>Jogador B</label>
+        <select id="launchPlayerB"></select>
+      </div>
+
+      <div class="launch-box">
+        <strong>Dupla CD</strong>
+        <label>Jogador C</label>
+        <select id="launchPlayerC"></select>
+        <label>Jogador D</label>
+        <select id="launchPlayerD"></select>
+      </div>
+    </div>
+
+    <div class="launch-box" style="margin-top:12px;">
+      <strong>Placar final</strong>
+      <div class="launch-score-grid" style="margin-top:10px;">
+        <div>
+          <label>Games da dupla AB</label>
+          <input type="number" id="launchGamesAB" min="0" max="30" value="6" />
+        </div>
+        <div>
+          <label>Games da dupla CD</label>
+          <input type="number" id="launchGamesCD" min="0" max="30" value="4" />
+        </div>
+      </div>
+      <label>Responsável pelo lançamento (opcional)</label>
+      <input type="text" id="launchSubmittedBy" placeholder="Ex: Marcos / Quadra 1" />
+      <div class="small" style="margin-top:10px;">Válidos: 6x0 até 6x4, 7x5, 7x6, ou super tie-break (10+ com diferença mínima de 2).</div>
+      <div class="launch-msg small" id="launchMsg"></div>
+    </div>
+
+    <div class="launch-actions">
+      <button class="tv-btn" onclick="submitLaunchResult()">Enviar resultado</button>
+    </div>
+  </div>
+</div>
+
+
+  <script>
+
+    const DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
+
+function getRulesText(state) {
+  const config = state?.config || {};
+  return config.rules || config.regras || config.rulesText || config.regrasText || "";
+}
+
+function formatRulesHtml(text) {
+  if (!text) return '<div class="rules-empty">Nenhuma regra sincronizada no momento.</div>';
+  let safe = String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  safe = safe.replace(/^###\s?(.*)$/gm, "<h3>$1</h3>");
+  safe = safe.replace(/^##\s?(.*)$/gm, "<h2>$1</h2>");
+  safe = safe.replace(/^#\s?(.*)$/gm, "<h1>$1</h1>");
+  safe = safe.replace(/^\-\s?(.*)$/gm, "• $1");
+  safe = safe.replace(/\n/g, "<br>");
+  return safe;
+}
+
+function renderRules() {
+  const state = currentState || {};
+  const el = document.getElementById("rulesContent");
+  if (!el) return;
+  el.innerHTML = formatRulesHtml(getRulesText(state));
+}
+
+function openRulesModal() {
+  renderRules();
+  const modal = document.getElementById("rulesModal");
+  if (modal) modal.classList.add("open");
+}
+
+function closeRulesModal() {
+  const modal = document.getElementById("rulesModal");
+  if (modal) modal.classList.remove("open");
+}
+
+const launchSelectIds = ["launchPlayerA","launchPlayerB","launchPlayerC","launchPlayerD"];
+
+function getLaunchPlayersSorted() {
+  return Array.isArray(currentState?.players)
+    ? [...currentState.players].sort((a,b) => (a.name||"").localeCompare(b.name||""))
+    : [];
+}
+
+function getLaunchSelectedMap() {
+  const selected = {};
+  launchSelectIds.forEach(id => {
+    const el = document.getElementById(id);
+    selected[id] = el ? String(el.value || "") : "";
+  });
+  return selected;
+}
+
+function fillLaunchSelect(selectId, selectedMap) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+
+  const chosenElsewhere = new Set(
+    launchSelectIds
+      .filter(id => id !== selectId)
+      .map(id => String(selectedMap[id] || ""))
+      .filter(Boolean)
+  );
+
+  const currentValue = String(selectedMap[selectId] || "");
+  const players = getLaunchPlayersSorted();
+
+  sel.innerHTML = "";
+
+  const opt = document.createElement("option");
+  opt.value = "";
+  opt.textContent = "-- selecione --";
+  sel.appendChild(opt);
+
+  players.forEach(p => {
+    const playerId = String(p.id);
+    if (chosenElsewhere.has(playerId) && playerId !== currentValue) return;
+
+    const o = document.createElement("option");
+    o.value = playerId;
+    o.textContent = p.name || ("Jogador " + p.id);
+    if (playerId === currentValue) o.selected = true;
+    sel.appendChild(o);
+  });
+
+  sel.value = currentValue;
+}
+
+function refreshLaunchSelects() {
+  const selectedMap = getLaunchSelectedMap();
+  launchSelectIds.forEach(id => fillLaunchSelect(id, selectedMap));
+}
+
+function populateLaunchPlayers() {
+  refreshLaunchSelects();
+}
+
+function attachLaunchSelectListeners() {
+  launchSelectIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.boundChange === "1") return;
+    el.addEventListener("change", refreshLaunchSelects);
+    el.dataset.boundChange = "1";
+  });
+}
+
+function setLaunchMsg(text, isError) {
+  const el = document.getElementById("launchMsg");
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = isError ? "#ffb3b3" : "#b7d5ff";
+}
+
+function openLaunchModal() {
+  populateLaunchPlayers();
+  setLaunchMsg("", false);
+  const modal = document.getElementById("launchModal");
+  if (modal) modal.classList.add("open");
+}
+
+function closeLaunchModal() {
+  const modal = document.getElementById("launchModal");
+  if (modal) modal.classList.remove("open");
+}
+
+function validateLaunchScore(gAB, gCD) {
+  if (![gAB, gCD].every(v => Number.isFinite(v) && v >= 0)) return "Placar inválido.";
+  if (gAB === gCD) return "Placar não pode terminar empatado.";
+  const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD), diff = maxG - minG;
+  const isSuper = maxG >= 10 && diff >= 2;
+  const isNormal = (maxG === 6 && diff >= 2 && minG <= 4) || (maxG === 7 && (minG === 5 || minG === 6));
+  if (!isSuper && !isNormal) return "Use 6x0 a 6x4, 7x5, 7x6, ou super tie-break (10+ e diferença 2).";
+  return "";
+}
+
+const K_FACTOR = 32;
+const SCORE_MULTIPLIERS = {
+  "6-0/6-1": 1.15,
+  "6-2/6-3": 1.05,
+  "6-4/7-5": 1.0,
+  "Super": 1.1
+};
+
+function probVictoryTv(r1, r2) {
+  return 1 / (1 + Math.pow(10, (r2 - r1) / 400));
+}
+
+function inferScoreCategoryTv(gAB, gCD) {
+  const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD);
+  if (maxG >= 10) return "Super";
+  if (maxG === 6 && (minG === 0 || minG === 1)) return "6-0/6-1";
+  if (maxG === 6 && (minG === 2 || minG === 3)) return "6-2/6-3";
+  return "6-4/7-5";
+}
+
+function applySubmissionToCurrentState(submissionId, sub) {
+  if (!currentState || !Array.isArray(currentState.players)) return false;
+  currentState.matches = Array.isArray(currentState.matches) ? currentState.matches : [];
+  if (currentState.matches.some(m => m.source_submission_id === submissionId)) return false;
+
+  const playersById = new Map((currentState.players || []).map(p => [Number(p.id), p]));
+  const a = playersById.get(Number(sub.aId));
+  const b = playersById.get(Number(sub.bId));
+  const c = playersById.get(Number(sub.cId));
+  const d = playersById.get(Number(sub.dId));
+  if (!a || !b || !c || !d) return false;
+
+  const gAB = Number(sub.gamesAB);
+  const gCD = Number(sub.gamesCD);
+  const winnerSide = gAB > gCD ? "AB" : "CD";
+  const scoreCategory = inferScoreCategoryTv(gAB, gCD);
+  const ratingAB = ((Number(a.rating) || 0) + (Number(b.rating) || 0)) / 2;
+  const ratingCD = ((Number(c.rating) || 0) + (Number(d.rating) || 0)) / 2;
+  const pAB = probVictoryTv(ratingAB, ratingCD);
+  const pCD = 1 - pAB;
+  const resultAB = winnerSide === "AB" ? 1 : 0;
+  const resultCD = 1 - resultAB;
+  const mult = SCORE_MULTIPLIERS[scoreCategory] || 1.0;
+  const deltaAB = K_FACTOR * (resultAB - pAB) * mult;
+  const deltaCD = K_FACTOR * (resultCD - pCD) * mult;
+
+  a.rating = (Number(a.rating) || 0) + deltaAB;
+  b.rating = (Number(b.rating) || 0) + deltaAB;
+  c.rating = (Number(c.rating) || 0) + deltaCD;
+  d.rating = (Number(d.rating) || 0) + deltaCD;
+
+  currentState.matches.push({
+    id: currentState.matches.length + 1,
+    date: sub.submittedAt || new Date().toISOString(),
+    player_a_id: Number(a.id),
+    player_b_id: Number(b.id),
+    player_c_id: Number(c.id),
+    player_d_id: Number(d.id),
+    games_ab: gAB,
+    games_cd: gCD,
+    winner_side: winnerSide,
+    score_category: scoreCategory,
+    delta_ab: deltaAB,
+    delta_cd: deltaCD,
+    source: "tv_direct",
+    source_submission_id: submissionId,
+    submitted_by: sub.submittedBy || ""
+  });
+
+  currentState.updatedAt = new Date().toISOString();
+  return true;
+}
+
+async function syncCurrentStateToCloud() {
+  if (!currentState) return { ok: false, message: "Sem estado local para sincronizar." };
+  try {
+    const stateRes = await fetch(dbPath("bt_tv/state"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(currentState)
+    });
+    const heartbeatRes = await fetch(dbPath("bt_tv/heartbeat"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ updatedAt: new Date().toISOString(), source: "tv_direct" })
+    });
+    if (!stateRes.ok || !heartbeatRes.ok) {
+      return { ok: false, message: "Não consegui sincronizar o estado da TV no banco." };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("Falha ao sincronizar estado da TV", err);
+    return { ok: false, message: "Não consegui sincronizar o estado da TV no banco." };
+  }
+}
+
+async function submitLaunchResult() {
+  const submitBtn = document.querySelector('#launchModal .tv-btn[onclick="submitLaunchResult()"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.65';
+    submitBtn.textContent = 'Enviando...';
+  }
+  try {
+    const aId = parseInt(document.getElementById("launchPlayerA").value);
+    const bId = parseInt(document.getElementById("launchPlayerB").value);
+    const cId = parseInt(document.getElementById("launchPlayerC").value);
+    const dId = parseInt(document.getElementById("launchPlayerD").value);
+    const gamesAB = parseInt(document.getElementById("launchGamesAB").value);
+    const gamesCD = parseInt(document.getElementById("launchGamesCD").value);
+    const submittedBy = (document.getElementById("launchSubmittedBy").value || "").trim();
+
+    if ([aId,bId,cId,dId].some(v => Number.isNaN(v))) {
+      setLaunchMsg("Selecione os 4 jogadores.", true);
+      return;
+    }
+    if (new Set([aId,bId,cId,dId]).size !== 4) {
+      setLaunchMsg("Os 4 jogadores precisam ser diferentes.", true);
+      return;
+    }
+    const scoreError = validateLaunchScore(gamesAB, gamesCD);
+    if (scoreError) {
+      setLaunchMsg(scoreError, true);
+      return;
+    }
+
+    const submissionId = "tv_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+    const payload = {
+      id: submissionId,
+      aId, bId, cId, dId,
+      gamesAB, gamesCD,
+      submittedBy,
+      submittedAt: new Date().toISOString(),
+      status: "pending",
+      source: "tv"
+    };
+
+    const pendingRes = await fetch(dbPath("bt_qr/submissions/" + submissionId), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!pendingRes.ok) {
+      const bodyText = await pendingRes.text().catch(() => "");
+      throw new Error("Falha ao gravar resultado pendente. HTTP " + pendingRes.status + (bodyText ? (" - " + bodyText) : ""));
+    }
+
+    const applied = applySubmissionToCurrentState(submissionId, payload);
+    if (applied) {
+      renderAll();
+      const syncRes = await syncCurrentStateToCloud();
+      if (syncRes.ok) {
+        setLaunchMsg("Resultado enviado, ranking atualizado na TV e sincronizado no banco.", false);
+      } else {
+        setLaunchMsg("Resultado enviado e ranking atualizado na TV. Só não consegui sincronizar o estado da TV no banco agora.", false);
+      }
+    } else {
+      setLaunchMsg("Resultado enviado. O ranking principal deve importar em alguns segundos.", false);
+    }
+
+    document.getElementById("launchGamesAB").value = "6";
+    document.getElementById("launchGamesCD").value = "4";
+    document.getElementById("launchSubmittedBy").value = "";
+    ["launchPlayerA","launchPlayerB","launchPlayerC","launchPlayerD"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    refreshLaunchSelects();
+    setTimeout(closeLaunchModal, 900);
+  } catch (e) {
+    console.error(e);
+    const msg = String(e && e.message || "");
+    if (msg.includes("HTTP 401") || msg.includes("HTTP 403")) {
+      setLaunchMsg("O banco recusou a gravação. Precisamos ajustar a permissão do Firebase para este caminho.", true);
+    } else {
+      setLaunchMsg("Não consegui enviar o resultado para o banco.", true);
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.textContent = 'Enviar resultado';
+    }
+  }
+}
+
+function renderRecentLaunches() {
+  const listEl = document.getElementById("recentLaunchesList");
+  const emptyEl = document.getElementById("recentLaunchesEmpty");
+  if (!listEl || !emptyEl) return;
+  const playersById = new Map((currentState?.players || []).map(p => [Number(p.id), p]));
+  const matches = Array.isArray(currentState?.matches) ? [...currentState.matches] : [];
+  matches.sort((a,b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  const recent = matches.slice(0, 8);
+  if (!recent.length) {
+    listEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+  listEl.innerHTML = recent.map(m => {
+    const a = playersById.get(Number(m.player_a_id))?.name || "Jogador A";
+    const b = playersById.get(Number(m.player_b_id))?.name || "Jogador B";
+    const c = playersById.get(Number(m.player_c_id))?.name || "Jogador C";
+    const d = playersById.get(Number(m.player_d_id))?.name || "Jogador D";
+    const when = m.date ? new Date(m.date).toLocaleString("pt-BR") : "Agora";
+    const by = m.submitted_by ? ` · por ${m.submitted_by}` : "";
+    return `
+      <div class="recent-item">
+        <div class="recent-item-top">
+          <div>${a} / ${b}</div>
+          <div>${m.games_ab} x ${m.games_cd}</div>
+          <div>${c} / ${d}</div>
+        </div>
+        <div class="recent-item-meta">${when}${by}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+
+    let currentState = null;
+    let currentPreview = null;
+    let currentHeartbeat = null;
+
+    function setStatus(text, cls) {
+      const el = document.getElementById("statusEl");
+      el.textContent = text || "";
+      el.className = "small " + (cls || "");
+    }
+
+        function getDbUrlSaved() {
+      return DATABASE_URL;
+    }
+
+        function dbPath(path) {
+      const base = getDbUrlSaved();
+      if (!base) return "";
+      const clean = String(path || "").replace(/^\/+|\/+$/g, "");
+      return base + "/" + clean + ".json";
+    }
+
+    async function apiGet(path) {
+      const url = dbPath(path);
+      if (!url) throw new Error("URL do Firebase não configurada.");
+      const res = await fetch(url, { method: "GET", cache: "no-store" });
+      if (!res.ok) throw new Error("Falha ao consultar Firebase.");
+      return await res.json();
+    }
+
+    function getPositionsMap(state) {
+      const map = {};
+      const players = Array.isArray(state?.players) ? [...state.players].sort((a,b) => (b.rating||0) - (a.rating||0)) : [];
+      players.forEach((p, idx) => map[p.id] = idx + 1);
+      return map;
+    }
+
+    function getGamesCount(state, playerId) {
+      return (state.matches || []).filter(m =>
+        m.player_a_id === playerId || m.player_b_id === playerId || m.player_c_id === playerId || m.player_d_id === playerId
+      ).length;
+    }
+
+    function getPlayerStats(state, playerId) {
+      let wins = 0, losses = 0, gf = 0, ga = 0;
+      (state.matches || []).forEach(m => {
+        const inAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const inCD = (m.player_c_id === playerId || m.player_d_id === playerId);
+        if (!inAB && !inCD) return;
+        const gAB = m.games_ab || 0, gCD = m.games_cd || 0;
+        let gFor, gAgainst, win;
+        if (inAB) { gFor = gAB; gAgainst = gCD; win = gAB > gCD; }
+        else { gFor = gCD; gAgainst = gAB; win = gCD > gAB; }
+        gf += gFor; ga += gAgainst;
+        if (win) wins++; else losses++;
+      });
+      return { wins, losses, saldo: gf - ga };
+    }
+
+    function getLastFiveResults(state, playerId) {
+      const matches = (state.matches || [])
+        .filter(m => m.player_a_id === playerId || m.player_b_id === playerId || m.player_c_id === playerId || m.player_d_id === playerId)
+        .sort((a,b) => (a.id||0) - (b.id||0))
+        .slice(-5);
+      return matches.map(m => {
+        const isAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const winnerAB = m.winner_side === "AB";
+        const win = (isAB && winnerAB) || (!isAB && !winnerAB);
+        return win ? '<span class="streak-dot-win">●</span>' : '<span class="streak-dot-loss">●</span>';
+      }).join(" ");
+    }
+
+    function renderHeader() {
+      const title = currentState?.config?.rankingName || "Ranking de Beach Tennis";
+      const season = currentState?.config?.seasonLabel || "-";
+      document.getElementById("titleEl").textContent = title;
+      document.getElementById("seasonEl").textContent = "Temporada " + season;
+    }
+
+    function renderRanking() {
+      const tbody = document.querySelector("#rankingTable tbody");
+      tbody.innerHTML = "";
+      const players = Array.isArray(currentState?.players) ? [...currentState.players].sort((a,b) => (b.rating||0) - (a.rating||0)) : [];
+      const lastPos = currentState?.lastPositions || {};
+
+      if (!players.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan='9' style='text-align:center; opacity:0.75;'>Sem jogadores sincronizados ainda.</td>";
+        tbody.appendChild(tr);
+        return;
+      }
+
+      players.forEach((p, idx) => {
+        const pos = idx + 1;
+        let varHtml = '<span class="var-same">●</span>';
+        if (lastPos[p.id]) {
+          const delta = lastPos[p.id] - pos;
+          if (delta > 0) varHtml = '<span class="var-up">▲</span>';
+          else if (delta < 0) varHtml = '<span class="var-down">▼</span>';
+        }
+        const stats = getPlayerStats(currentState, p.id);
+        const jogos = getGamesCount(currentState, p.id);
+        const tr = document.createElement("tr");
+        if (idx === 0) tr.classList.add("first-row");
+        if (idx === players.length - 1) tr.classList.add("last-row");
+        tr.innerHTML =
+          "<td>" + pos + "</td>" +
+          "<td>" + (p.name || "-") + "</td>" +
+          "<td>" + Number(p.rating || 0).toFixed(0) + "</td>" +
+          "<td>" + jogos + "</td>" +
+          "<td>" + stats.wins + "</td>" +
+          "<td>" + stats.losses + "</td>" +
+          "<td>" + stats.saldo + "</td>" +
+          "<td>" + varHtml + "</td>" +
+          "<td>" + getLastFiveResults(currentState, p.id) + "</td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderQueue() {
+      const tbody = document.querySelector("#queueTable tbody");
+      const empty = document.getElementById("queueEmpty");
+      tbody.innerHTML = "";
+      const queue = Array.isArray(currentState?.queue) ? currentState.queue : [];
+      const players = Array.isArray(currentState?.players) ? currentState.players : [];
+      const posMap = getPositionsMap(currentState || {});
+      if (!queue.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+      queue.forEach((q, idx) => {
+        const a = players.find(p => p.id === q.aId);
+        const b = players.find(p => p.id === q.bId);
+        const c = players.find(p => p.id === q.cId);
+        const d = players.find(p => p.id === q.dId);
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + (idx + 1) + "</td>" +
+          "<td>" + (a ? "(" + (posMap[a.id] || "-") + ") " + a.name : "?") + " & " + (b ? "(" + (posMap[b.id] || "-") + ") " + b.name : "?") + "</td>" +
+          "<td>" + (c ? "(" + (posMap[c.id] || "-") + ") " + c.name : "?") + " & " + (d ? "(" + (posMap[d.id] || "-") + ") " + d.name : "?") + "</td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderLive() {
+      const teams = document.getElementById("liveTeams");
+      const score = document.getElementById("liveScore");
+      const info = document.getElementById("liveInfo");
+      const proj = document.getElementById("liveProjection");
+      if (!currentPreview) {
+        teams.textContent = "Nenhum jogo em andamento";
+        score.textContent = "";
+        info.textContent = "";
+        proj.textContent = "";
+        return;
+      }
+      teams.textContent = (currentPreview.duplaAB || "Dupla AB") + "  vs  " + (currentPreview.duplaCD || "Dupla CD");
+      score.textContent = (currentPreview.gamesAB ?? 0) + " x " + (currentPreview.gamesCD ?? 0);
+      info.textContent = currentPreview.scoreCategory && currentPreview.scoreCategory !== "-"
+        ? "Categoria: " + currentPreview.scoreCategory
+        : "Partida em andamento";
+      if (Number.isFinite(currentPreview.deltaAB) && Number.isFinite(currentPreview.deltaCD)) {
+        proj.textContent = "Projeção: AB " + (currentPreview.deltaAB >= 0 ? "+" : "") + Number(currentPreview.deltaAB).toFixed(1) +
+          " pts · CD " + (currentPreview.deltaCD >= 0 ? "+" : "") + Number(currentPreview.deltaCD).toFixed(1) + " pts";
+      } else {
+        proj.textContent = "";
+      }
+    }
+
+    function renderHeartbeat() {
+      const hb = document.getElementById("heartbeatInfo");
+      if (!currentHeartbeat?.updatedAt) {
+        hb.textContent = "Sem heartbeat do ranking ainda.";
+        return;
+      }
+      const dt = new Date(currentHeartbeat.updatedAt);
+      hb.textContent = "Última sincronização do ranking: " + dt.toLocaleString("pt-BR");
+    }
+
+    async function refreshData() {
+      try {
+        const db = getDbUrlSaved();
+        if (!db) {
+          setStatus("Cole a URL do Firebase para iniciar.", "status-warn");
+          renderHeader();
+          renderRanking();
+          renderQueue();
+          renderRecentLaunches();
+          renderLive();
+          renderHeartbeat();
+          return;
+        }
+        const [state, preview, heartbeat] = await Promise.all([
+          apiGet("bt_tv/state"),
+          apiGet("bt_tv/current_match_preview"),
+          apiGet("bt_tv/heartbeat")
+        ]);
+        currentState = state;
+        currentPreview = preview;
+        currentHeartbeat = heartbeat;
+        populateLaunchPlayers();
+        renderHeader();
+        renderRanking();
+        renderQueue();
+        renderRecentLaunches();
+        renderLive();
+        renderHeartbeat();
+        setStatus("Online", "status-ok");
+      } catch (e) {
+        console.error(e);
+        setStatus("Não consegui ler o Firebase. Confira a URL e as regras.", "status-bad");
+      }
+    }
+
+    function forceRefresh() {
+      refreshData();
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const rulesModal = document.getElementById("rulesModal");
+      const launchModal = document.getElementById("launchModal");
+      if (rulesModal) rulesModal.addEventListener("click", function(ev){ if (ev.target === rulesModal) closeRulesModal(); });
+      if (launchModal) launchModal.addEventListener("click", function(ev){ if (ev.target === launchModal) closeLaunchModal(); });
+      const btnCloseRules = document.getElementById("btnCloseRules");
+      if (btnCloseRules) btnCloseRules.addEventListener("click", closeRulesModal);
+      refreshData();
+      setInterval(refreshData, 5000);
+    });
+  </script>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;opacity:0.5;z-index:9999;">TV v10</div>
+</body>
+</html>
