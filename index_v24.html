@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ranking Beach Tennis - ELO Local v24</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background:#f7f7f7; }
+    h1, h2, h3 { color: #333; }
+    .flex { display: flex; gap: 24px; flex-wrap: wrap; }
+    .card { background:#fff; border: 1px solid #ddd; padding: 16px; border-radius: 8px; width: 380px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    label { display: block; margin-top: 8px; font-size: 0.9rem; }
+    input, select { width: 100%; padding: 6px; margin-top: 2px; border-radius:4px; border:1px solid:#ccc; box-sizing:border-box; }
+    button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius:4px;
+      border:none;
+      background:#0077cc;
+      color:#ffffff !important;
+      font-size:0.9rem;
+    }
+    button.secondary { background:#555; color:#ffffff !important; }
+    button.danger { background:#cc3344; color:#ffffff !important; }
+    button.small { font-size:0.8rem; padding:6px 10px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 0.85rem; }
+    th { background: #f0f0f0; }
+    .small { font-size: 0.8rem; color: #555; }
+    .badge { display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.75rem; background:#eee; margin-left:4px; }
+    .row { margin-top: 24px; }
+    .error { color:#c0392b; }
+    .success { color:#1e8449; }
+    #cadastroOverlay,
+    #backupOverlay,
+    #rulesOverlay,
+    #configOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    #cadastroPanel,
+    #backupPanel,
+    #rulesPanel,
+    #configPanel {
+      background:#fff;
+      border-radius:8px;
+      padding:20px;
+      max-width:520px;
+      width:90%;
+      box-shadow:0 4px 12px rgba(0,0,0,0.25);
+    }
+    .top-buttons {
+      display:flex;
+      gap:8px;
+      margin:8px 0 4px 0;
+      flex-wrap:wrap;
+    }
+    #rankingTable th:nth-child(4),
+    #rankingTable th:nth-child(5),
+    #rankingTable th:nth-child(6),
+    #rankingTable th:nth-child(7),
+    #rankingTable th:nth-child(8),
+    #rankingTable td:nth-child(4),
+    #rankingTable td:nth-child(5),
+    #rankingTable td:nth-child(6),
+    #rankingTable td:nth-child(7),
+    #rankingTable td:nth-child(8) {
+      text-align: center;
+    }
+    #queueTable th, #queueTable td {
+      text-align:left;
+      font-size:0.8rem;
+    }
+    /* Gerador de confrontos */
+    .gen-layout {
+      display:flex;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    .gen-column {
+      flex:1;
+      min-width:260px;
+    }
+    .gen-player-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:3px 0;
+      border-bottom:1px dashed #eee;
+      font-size:0.82rem;
+    }
+    .gen-player-main {
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .gen-player-meta {
+      text-align:right;
+      font-size:0.75rem;
+      color:#666;
+    }
+    .gen-tag {
+      display:inline-block;
+      padding:1px 4px;
+      border-radius:4px;
+      font-size:0.7rem;
+      background:#eef5ff;
+      margin-left:4px;
+    }
+    .gen-match-card {
+      border:1px solid #ddd;
+      border-radius:6px;
+      padding:8px;
+      margin-bottom:8px;
+      font-size:0.85rem;
+      background:#fafafa;
+    }
+    .gen-match-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:4px;
+      font-weight:bold;
+    }
+    .gen-match-teams {
+      margin:4px 0;
+    }
+    .gen-match-meta {
+      font-size:0.75rem;
+      color:#666;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏖️ <span id="rankingNameDisplay"></span> – ELO</h1>
+  <p class="small">
+    <span id="seasonSubtitle"></span> · Jogo em andamento com placar em tempo real, regra de 6 games e tie-break, e projeção de pontos.
+    Dados salvos no navegador (<strong>localStorage</strong>) com opção de <strong>backup</strong> em JSON.
+  </p>
+
+  <div class="top-buttons">
+    <button class="small danger" onclick="resetRanking()">🔄 Resetar Ranking</button>
+    <button class="small danger" onclick="clearAllData()">💀 Limpar Tudo</button>
+    <button class="small secondary" onclick="openRules()">📜 Regras</button>
+    <button class="small secondary" onclick="openCadastro()">👤 Cadastro</button>
+    <button class="small secondary" onclick="openBackup()">💾 Backup</button>
+    <button class="small" onclick="openConfig()">🏆 <span id="btnRankingNameLabel"></span></button>
+    <button class="small" onclick="openConfig()">📅 <span id="btnSeasonLabel"></span></button>
+  </div>
+
+  <!-- Gerador de confrontos -->
+  <div class="row">
+    <div class="card" style="width:100%;max-width:1100px;">
+      <h2>⚙️ Gerador de confrontos</h2>
+      <p class="small">
+        Marque quem está <strong>disponível</strong>, escolha o modo e o número de quadras, e o sistema sugere confrontos
+        prontos para enviar à fila.
+      </p>
+
+      <div class="flex" style="gap:12px;flex-wrap:wrap;">
+        <div style="min-width:200px;">
+          <label>Modo de geração</label>
+          <select id="genMode">
+            <option value="balanceado">Balanceado (níveis parecidos)</option>
+            <option value="misturado">Misturado</option>
+            <option value="desafio">Desafio (melhores x piores)</option>
+          </select>
+        </div>
+        <div style="min-width:160px;">
+          <label>Qtd. de quadras</label>
+          <select id="genCourts">
+            <option value="1">1 quadra</option>
+            <option value="2">2 quadras</option>
+            <option value="3">3 quadras</option>
+            <option value="4">4 quadras</option>
+          </select>
+        </div>
+        <div style="align-self:flex-end;">
+          <button class="small" onclick="selectAllAvailable()">Selecionar todos disponíveis</button>
+          <button class="small secondary" onclick="clearAllAvailable()">Limpar seleção</button>
+        </div>
+      </div>
+
+      <div class="gen-layout" style="margin-top:12px;">
+        <div class="gen-column">
+          <h3 style="margin-bottom:6px;">Jogadores</h3>
+          <div id="genPlayersList" class="small">
+            <!-- jogadores renderizados via JS -->
+          </div>
+        </div>
+        <div class="gen-column">
+          <h3 style="margin-bottom:6px;">Sugestão de confrontos</h3>
+          <button class="small" onclick="generateSuggestedMatches()">Gerar confrontos</button>
+          <p id="genMsg" class="small" style="margin-top:4px;"></p>
+          <div id="genMatchesList" style="margin-top:8px;">
+            <!-- confrontos sugeridos via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex" style="margin-top:16px;">
+    <div class="card" id="configCard" style="width:420px;">
+      <h2>Configurar confronto manual</h2>
+
+      <label>Dupla AB - Jogador A</label>
+      <select id="playerA"></select>
+
+      <label>Dupla AB - Jogador B</label>
+      <select id="playerB"></select>
+
+      <label>Dupla CD - Jogador C</label>
+      <select id="playerC"></select>
+
+      <label>Dupla CD - Jogador D</label>
+      <select id="playerD"></select>
+
+      <p class="small">
+        Você também pode montar confrontos manualmente selecionando os 4 jogadores e clicando em
+        <strong>Iniciar confronto</strong> ou <strong>Adicionar à fila</strong>.
+      </p>
+
+      <button onclick="startMatch()">Iniciar confronto</button>
+      <button class="secondary small" onclick="addToQueue()">Adicionar à fila de próximos confrontos</button>
+      <p id="matchMsg" class="small"></p>
+    </div>
+
+    <div class="card" style="width:760px;">
+      <h2 id="rankingTitle">Ranking Atual</h2>
+      <button onclick="renderRanking()">Atualizar Ranking</button>
+      <table id="rankingTable">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Nome</th>
+            <th>Pts</th>
+            <th>Jogos</th>
+            <th>Vitórias</th>
+            <th>Derrotas</th>
+            <th>Saldo games</th>
+            <th>Variação</th>
+            <th>Últimos jogos</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="small">
+        Pts iniciais: 1000 • K: 32<br/>
+        Multiplicadores: <span class="badge">6–0/6–1 = 1.10</span>
+        <span class="badge">6–2/6–3 = 1.05</span>
+        <span class="badge">6–4/7–5 = 1.00</span>
+        <span class="badge">Super = 0.90</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Próximos confrontos -->
+  <div class="row">
+    <div class="card" style="width:100%;max-width:800px;">
+      <h2>Próximos confrontos</h2>
+      <table id="queueTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Dupla AB</th>
+            <th>Dupla CD</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="small">Confrontos na fila podem ser <strong>iniciados</strong> ou <strong>excluídos</strong> em sequência.</p>
+    </div>
+  </div>
+
+  <!-- Jogo em andamento -->
+  <div class="row">
+    <div id="liveMatchCard" class="card" style="width:100%;max-width:800px;display:none;">
+      <h2>🎾 Jogo em andamento</h2>
+      <p id="liveTeams" style="font-size:1rem;font-weight:bold;"></p>
+      <p id="liveScore" style="font-size:1.4rem;margin-top:8px;"></p>
+      <p id="liveDuration" class="small" style="margin-top:4px;"></p>
+
+      <div>
+        <button class="small" id="btnGameAB" onclick="adjustScore('AB', 1)">Dupla AB</button>
+        <button class="small" id="btnGameCD" onclick="adjustScore('CD', 1)">Dupla CD</button>
+        <button class="small secondary" onclick="adjustScore('AB', -1)">-1 game AB</button>
+        <button class="small secondary" onclick="adjustScore('CD', -1)">-1 game CD</button>
+      </div>
+
+      <div id="tieSection" style="margin-top:10px; display:none;">
+        <p style="margin:4px 0;">Tie-break (até 10, diferença mínima de 2 pontos):</p>
+        <p id="tieScore" style="font-size:1.1rem;margin:4px 0;">0 x 0</p>
+        <button class="small" id="btnTieAB" onclick="adjustTie('AB',1)">Tie AB</button>
+        <button class="small" id="btnTieCD" onclick="adjustTie('CD',1)">Tie CD</button>
+        <button class="small secondary" onclick="adjustTie('AB',-1)">-1 AB</button>
+        <button class="small secondary" onclick="adjustTie('CD',-1)">-1 CD</button>
+      </div>
+
+      <p id="liveProjection" class="small" style="margin-top:10px;"></p>
+
+      <button class="small" onclick="finishMatch()">Encerrar e registrar partida</button>
+      <button class="small secondary" onclick="cancelMatch()">Cancelar confronto</button>
+    </div>
+  </div>
+
+  <!-- Painel de jogos -->
+  <div class="row">
+    <div class="card" style="width:100%;max-width:1000px;">
+      <h2>Painel de Jogos</h2>
+      <p class="small">
+        Lista dos jogos registrados (mais recentes primeiro). Você pode excluir um jogo para corrigir resultados errados
+        (o ranking é recalculado automaticamente).
+      </p>
+      <table id="matchesTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Data</th>
+            <th>Dupla AB</th>
+            <th>Dupla CD</th>
+            <th>Placar</th>
+            <th>Vencedor</th>
+            <th>Categoria</th>
+            <th>ΔAB</th>
+            <th>ΔCD</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Cadastro -->
+  <div id="cadastroOverlay">
+    <div id="cadastroPanel">
+      <h2>Cadastro de jogadores</h2>
+      <label>Nome do jogador</label>
+      <input type="text" id="playerName" />
+      <button onclick="createPlayer()">Salvar jogador</button>
+      <p id="playerMsg" class="small"></p>
+      <button class="small" style="margin-top:14px;" onclick="closeCadastro()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Backup -->
+  <div id="backupOverlay">
+    <div id="backupPanel">
+      <h2>Backup da temporada</h2>
+      <p class="small">Faça download do arquivo JSON para guardar o histórico da temporada ou carregue um backup antigo.</p>
+      <button class="secondary small" onclick="exportBackup()">⬇️ Baixar backup (JSON)</button>
+      <br/>
+      <label class="small" style="margin-top:8px;">Carregar backup (JSON)</label>
+      <input type="file" id="backupFile" accept="application/json" onchange="importBackup(event)" />
+      <p id="backupMsg" class="small"></p>
+      <button class="danger small" onclick="clearData()">🔁 Limpar tudo (resetar ranking da temporada)</button>
+      <br/>
+      <button class="small" style="margin-top:14px;" onclick="closeBackup()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Configuração de nome do ranking e temporada -->
+  <div id="configOverlay">
+    <div id="configPanel">
+      <h2>Configuração do Ranking</h2>
+      <label>Nome do Ranking</label>
+      <input type="text" id="configRankingName" placeholder="Ex: Ranking Beach Tennis Lagoa" />
+      <label>Temporada</label>
+      <input type="text" id="configSeason" placeholder="Ex: 2025" />
+      <button class="small" onclick="saveConfig()">Salvar</button>
+      <p id="configMsg" class="small"></p>
+      <button class="small" style="margin-top:14px;" onclick="closeConfig()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Regras -->
+  <div id="rulesOverlay">
+    <div id="rulesPanel">
+      <h2>Regras do Ranking</h2>
+      <ul class="small">
+        <li><strong>Temporada:</strong> definida na configuração (Nome do Ranking / Temporada).</li>
+        <li><strong>Formato:</strong> jogos de dupla (AB x CD), pontuação individual.</li>
+        <li><strong>Pontuação inicial:</strong> 1000 pts por jogador.</li>
+        <li>
+          <strong>Cálculo:</strong> sistema tipo ELO com K=32, usando média das duplas.<br/>
+          <span class="small">
+            Exemplo: Jogador A = 1020 pts, Jogador B = 980 pts ⇒ média da dupla AB = (1020 + 980) / 2 = 1000 pts.<br/>
+            Supondo probabilidade de vitória de AB pAB = 0,60 e vitória de AB com placar 6–2 (multiplicador 1,05):<br/>
+            ΔAB = 32 × (1 − 0,60) × 1,05 ≈ +13,44 pts para cada jogador da dupla AB;<br/>
+            ΔCD = 32 × (0 − 0,40) × 1,05 ≈ −13,44 pts para cada jogador da dupla CD.
+          </span>
+        </li>
+        <li><strong>Placar e categoria:</strong>
+          <ul>
+            <li>Super tie-break (10+ pts) → <em>Super</em> (0,90)</li>
+            <li>6–0 ou 6–1 → <em>6-0/6-1</em> (1,10)</li>
+            <li>6–2 ou 6–3 → <em>6-2/6-3</em> (1,05)</li>
+            <li>Demais vitórias (6–4, 7–5, 7–6) → <em>6-4/7-5</em> (1,00)</li>
+          </ul>
+        </li>
+        <li><strong>Regras de encerramento do set:</strong>
+          <ul>
+            <li>Vitória normal: 6 games com diferença mínima de 2 (6–0, 6–1, 6–2, 6–3, 6–4).</li>
+            <li>Se 5–5: pode ir a 7–5.</li>
+            <li>Se 6–6: abre tie-break; vencedor fica com 7–6.</li>
+          </ul>
+        </li>
+        <li><strong>Fila de confrontos:</strong> você pode adicionar próximos confrontos, iniciar ou excluir da fila.</li>
+      </ul>
+      <button class="small" onclick="closeRules()">Fechar</button>
+    </div>
+  </div>
+
+  <script>
+    const DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
+    const PTS_INICIAL = 1000;
+    const K = 32;
+    const MULTIPLICADORES = {
+      "6-0/6-1": 1.10,
+      "6-2/6-3": 1.05,
+      "6-4/7-5": 1.00,
+      "Super": 0.90
+    };
+    const SEASON_YEAR = new Date().getFullYear();
+
+    let state = {
+      players: [],
+      matches: [],
+      lastPositions: {},
+      queue: [],
+      config: {
+        rankingName: "Ranking de Beach Tennis",
+        seasonLabel: SEASON_YEAR.toString(),
+        rulesText: ""
+      }
+    };
+
+    let currentMatch = null;
+    let matchTimerId = null;
+
+    // Gerador
+    let availability = {}; // {playerId: boolean}
+    let suggestedMatches = []; // [{aId,bId,cId,dId,meta:{...}}]
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem("bt_elo_state");
+        if (raw) {
+          state = JSON.parse(raw);
+          if (!state.lastPositions) state.lastPositions = {};
+          if (!state.queue) state.queue = [];
+          if (!state.config) {
+            state.config = {
+              rankingName: "Ranking de Beach Tennis",
+              seasonLabel: SEASON_YEAR.toString()
+            };
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao carregar state:", e);
+      }
+    }
+    function saveState() {
+      localStorage.setItem("bt_elo_state", JSON.stringify(state));
+    }
+
+    function applyConfigUI() {
+      const name = state.config?.rankingName || "Ranking de Beach Tennis";
+      const season = state.config?.seasonLabel || SEASON_YEAR.toString();
+      const titleName = document.getElementById("rankingNameDisplay");
+      const seasonSubtitle = document.getElementById("seasonSubtitle");
+      const btnName = document.getElementById("btnRankingNameLabel");
+      const btnSeason = document.getElementById("btnSeasonLabel");
+      const rankingTitle = document.getElementById("rankingTitle");
+      const cfgName = document.getElementById("configRankingName");
+      const cfgSeason = document.getElementById("configSeason");
+
+      if (titleName) titleName.textContent = name;
+      if (seasonSubtitle) seasonSubtitle.textContent = "Temporada " + season;
+      if (btnName) btnName.textContent = name;
+      if (btnSeason) btnSeason.textContent = "Temporada " + season;
+      if (rankingTitle) rankingTitle.textContent = "Ranking Atual – " + name + " (" + season + ")";
+      if (cfgName) cfgName.value = name;
+      if (cfgSeason) cfgSeason.value = season;
+    }
+
+    function openConfig() {
+      document.getElementById("configOverlay").style.display = "flex";
+      const msg = document.getElementById("configMsg");
+      if (msg) { msg.textContent = ""; msg.className = "small"; }
+    }
+    function closeConfig() {
+      document.getElementById("configOverlay").style.display = "none";
+    }
+
+function __btExtractRulesText() {
+  try {
+    const panel = document.getElementById("rulesPanel");
+    if (!panel) return "";
+    const clone = panel.cloneNode(true);
+    clone.querySelectorAll("button").forEach(btn => btn.remove());
+    const text = (clone.innerText || clone.textContent || "").trim();
+    return text;
+  } catch (e) {
+    return "";
+  }
+}
+
+    function saveConfig() {
+      const nameInput = document.getElementById("configRankingName");
+      const seasonInput = document.getElementById("configSeason");
+      const msg = document.getElementById("configMsg");
+      const name = (nameInput.value || "Ranking de Beach Tennis").trim();
+      const season = (seasonInput.value || SEASON_YEAR.toString()).trim();
+      state.config = { ...(state.config || {}), rankingName: name, seasonLabel: season, rulesText: __btExtractRulesText() };
+      saveState();
+      applyConfigUI();
+      if (msg) {
+        msg.textContent = "Configurações salvas.";
+        msg.className = "small success";
+      }
+    }
+
+    function nextPlayerId() {
+      return state.players.length ? Math.max(...state.players.map(p => p.id)) + 1 : 1;
+    }
+    function findPlayer(id) {
+      return state.players.find(p => p.id === id);
+    }
+    function probVictory(r1, r2) {
+      return 1 / (1 + Math.pow(10, (r2 - r1) / 400));
+    }
+    function getMultiplier(cat) { return MULTIPLICADORES[cat] || 1.0; }
+
+    function getGamesCount(playerId) {
+      return state.matches.filter(m =>
+        m.player_a_id === playerId ||
+        m.player_b_id === playerId ||
+        m.player_c_id === playerId ||
+        m.player_d_id === playerId
+      ).length;
+    }
+    function getPlayerStats(playerId) {
+      let wins = 0, losses = 0, gf = 0, ga = 0;
+      state.matches.forEach(m => {
+        const inAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const inCD = (m.player_c_id === playerId || m.player_d_id === playerId);
+        if (!inAB && !inCD) return;
+        const gAB = m.games_ab, gCD = m.games_cd;
+        let gFor, gAgainst, win;
+        if (inAB) { gFor = gAB; gAgainst = gCD; win = gAB > gCD; }
+        else { gFor = gCD; gAgainst = gAB; win = gCD > gAB; }
+        gf += gFor; ga += gAgainst;
+        if (win) wins++; else losses++;
+      });
+      return { wins, losses, saldo: gf - ga };
+    }
+
+    function inferScoreCategory(gAB, gCD) {
+      const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD);
+      if (maxG >= 10) return "Super";
+      if (maxG === 6 && (minG === 0 || minG === 1)) return "6-0/6-1";
+      if (maxG === 6 && (minG === 2 || minG === 3)) return "6-2/6-3";
+      return "6-4/7-5";
+    }
+
+    function getLastFiveResults(playerId) {
+      const matches = state.matches
+        .filter(m =>
+          m.player_a_id === playerId ||
+          m.player_b_id === playerId ||
+          m.player_c_id === playerId ||
+          m.player_d_id === playerId
+        )
+        .sort((a, b) => a.id - b.id);
+      const last5 = matches.slice(-5);
+      if (!last5.length) return "";
+      return last5.map(m => {
+        const isAB = (m.player_a_id === playerId || m.player_b_id === playerId);
+        const winnerAB = m.winner_side === "AB";
+        const win = (isAB && winnerAB) || (!isAB && !winnerAB);
+        return win
+          ? '<span style="color:#1e8449">●</span>'
+          : '<span style="color:#c0392b">●</span>';
+      }).join(" ");
+    }
+
+    function getPositionsMap() {
+      const map = {};
+      const playersOrdered = [...state.players].sort((a, b) => b.rating - a.rating);
+      playersOrdered.forEach((p, idx) => { map[p.id] = idx + 1; });
+      return map;
+    }
+
+    function refreshPlayerSelects() {
+      const playersOrdered = [...state.players].sort((a, b) => b.rating - a.rating);
+      const posMap = getPositionsMap();
+      ["playerA", "playerB", "playerC", "playerD"].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-- selecione --";
+        sel.appendChild(opt);
+        playersOrdered.forEach(p => {
+          const o = document.createElement("option");
+          o.value = p.id;
+          const pos = posMap[p.id] || "?";
+          o.textContent = p.name + " (Pos " + pos + ")";
+          sel.appendChild(o);
+        });
+      });
+
+      renderGeneratorPlayers();
+    }
+
+    function createPlayer() {
+      const nameInput = document.getElementById("playerName");
+      const name = nameInput.value.trim();
+      const msg = document.getElementById("playerMsg");
+      msg.className = "small";
+      if (!name) {
+        msg.textContent = "Informe um nome.";
+        msg.className = "small error"; return;
+      }
+      const exists = state.players.find(p => p.name.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        msg.textContent = "Já existe jogador com esse nome.";
+        msg.className = "small error"; return;
+      }
+      const player = { id: nextPlayerId(), name, rating: PTS_INICIAL };
+      state.players.push(player); saveState();
+      nameInput.value = ""; refreshPlayerSelects(); renderRanking();
+      msg.textContent = "Jogador criado com sucesso."; msg.className = "small success";
+    }
+
+    function renderQueue() {
+      const tbody = document.querySelector("#queueTable tbody");
+      tbody.innerHTML = "";
+      if (!state.queue || !state.queue.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan='4' class='small'>Nenhum confronto na fila.</td>";
+        tbody.appendChild(tr);
+        return;
+      }
+      const posMap = getPositionsMap();
+      state.queue.forEach((q, idx) => {
+        const a = findPlayer(q.aId), b = findPlayer(q.bId),
+              c = findPlayer(q.cId), d = findPlayer(q.dId);
+        const posA = a ? (posMap[a.id] || "?") : "?";
+        const posB = b ? (posMap[b.id] || "?") : "?";
+        const posC = c ? (posMap[c.id] || "?") : "?";
+        const posD = d ? (posMap[d.id] || "?") : "?";
+        const duplaAB = (a ? "(" + posA + ") " + a.name : "?") + " & " + (b ? "(" + posB + ") " + b.name : "?");
+        const duplaCD = (c ? "(" + posC + ") " + c.name : "?") + " & " + (d ? "(" + posD + ") " + d.name : "?");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${duplaAB}</td>
+          <td>${duplaCD}</td>
+          <td>
+            <button class="small" onclick="startQueuedMatch(${q.id})">Iniciar</button>
+            <button class="small danger" onclick="deleteQueuedMatch(${q.id})">Excluir</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function nextQueueId() {
+      return state.queue.length ? Math.max(...state.queue.map(q => q.id)) + 1 : 1;
+    }
+
+    function addToQueue() {
+      const msg = document.getElementById("matchMsg");
+      msg.className = "small";
+      const aId = parseInt(document.getElementById("playerA").value);
+      const bId = parseInt(document.getElementById("playerB").value);
+      const cId = parseInt(document.getElementById("playerC").value);
+      const dId = parseInt(document.getElementById("playerD").value);
+      if ([aId, bId, cId, dId].some(v => isNaN(v))) {
+        msg.textContent = "Selecione os 4 jogadores para adicionar à fila.";
+        msg.className = "small error"; return;
+      }
+      const a = findPlayer(aId), b = findPlayer(bId),
+            c = findPlayer(cId), d = findPlayer(dId);
+      if (!a || !b || !c || !d) {
+        msg.textContent = "Algum jogador selecionado não existe.";
+        msg.className = "small error"; return;
+      }
+      if (new Set([aId, bId, cId, dId]).size < 4) {
+        msg.textContent = "Os 4 jogadores devem ser diferentes.";
+        msg.className = "small error"; return;
+      }
+      state.queue.push({
+        id: nextQueueId(),
+        aId, bId, cId, dId,
+        createdAt: new Date().toISOString()
+      });
+      saveState();
+      renderQueue();
+      msg.textContent = "Confronto adicionado à fila com sucesso.";
+      msg.className = "small success";
+      ["playerA", "playerB", "playerC", "playerD"].forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.value = "";
+      });
+    }
+
+    function startQueuedMatch(queueId) {
+      const msg = document.getElementById("matchMsg");
+      msg.className = "small";
+      if (currentMatch) {
+        msg.textContent = "Já existe um jogo em andamento. Encerre ou cancele antes de iniciar outro.";
+        msg.className = "small error"; return;
+      }
+      const q = state.queue.find(q => q.id === queueId);
+      if (!q) {
+        msg.textContent = "Confronto não encontrado na fila.";
+        msg.className = "small error"; return;
+      }
+      const a = findPlayer(q.aId), b = findPlayer(q.bId),
+            c = findPlayer(q.cId), d = findPlayer(q.dId);
+      if (!a || !b || !c || !d) {
+        msg.textContent = "Jogador da fila não existe mais.";
+        msg.className = "small error"; return;
+      }
+
+      currentMatch = {
+        aId: q.aId,
+        bId: q.bId,
+        cId: q.cId,
+        dId: q.dId,
+        gamesAB: 0,
+        gamesCD: 0,
+        tieMode: false,
+        tieAB: 0,
+        tieCD: 0,
+        startedAt: new Date().toISOString()
+      };
+
+      state.queue = state.queue.filter(qi => qi.id !== queueId);
+      saveState();
+      renderQueue();
+
+      document.getElementById("btnGameAB").textContent = a.name + " & " + b.name;
+      document.getElementById("btnGameCD").textContent = c.name + " & " + d.name;
+      document.getElementById("btnTieAB").textContent = a.name + " & " + b.name + " (tie)";
+      document.getElementById("btnTieCD").textContent = c.name + " & " + d.name + " (tie)";
+      document.getElementById("tieSection").style.display = "none";
+      document.getElementById("tieScore").textContent = "0 x 0";
+      document.getElementById("liveMatchCard").style.display = "block";
+      msg.textContent = "Confronto da fila iniciado.";
+      msg.className = "small success";
+      startMatchTimer();
+      updateLiveMatchView();
+    }
+
+    function deleteQueuedMatch(queueId) {
+      state.queue = state.queue.filter(q => q.id !== queueId);
+      saveState();
+      renderQueue();
+    }
+
+    function startMatch() {
+      const msg = document.getElementById("matchMsg");
+      msg.className = "small";
+      if (currentMatch) {
+        msg.textContent = "Já existe um jogo em andamento. Encerre ou cancele antes de iniciar outro.";
+        msg.className = "small error"; return;
+      }
+      const aId = parseInt(document.getElementById("playerA").value);
+      const bId = parseInt(document.getElementById("playerB").value);
+      const cId = parseInt(document.getElementById("playerC").value);
+      const dId = parseInt(document.getElementById("playerD").value);
+      if ([aId, bId, cId, dId].some(v => isNaN(v))) {
+        msg.textContent = "Selecione os 4 jogadores para iniciar o confronto.";
+        msg.className = "small error"; return;
+      }
+      const a = findPlayer(aId), b = findPlayer(bId),
+            c = findPlayer(cId), d = findPlayer(dId);
+      if (!a || !b || !c || !d) {
+        msg.textContent = "Algum jogador selecionado não existe.";
+        msg.className = "small error"; return;
+      }
+      if (new Set([aId, bId, cId, dId]).size < 4) {
+        msg.textContent = "Os 4 jogadores devem ser diferentes.";
+        msg.className = "small error"; return;
+      }
+      currentMatch = {
+        aId, bId, cId, dId,
+        gamesAB: 0,
+        gamesCD: 0,
+        tieMode: false,
+        tieAB: 0,
+        tieCD: 0,
+        startedAt: new Date().toISOString()
+      };
+      document.getElementById("btnGameAB").textContent = a.name + " & " + b.name;
+      document.getElementById("btnGameCD").textContent = c.name + " & " + d.name;
+      document.getElementById("btnTieAB").textContent = a.name + " & " + b.name + " (tie)";
+      document.getElementById("btnTieCD").textContent = c.name + " & " + d.name + " (tie)";
+      document.getElementById("tieSection").style.display = "none";
+      document.getElementById("tieScore").textContent = "0 x 0";
+      document.getElementById("liveMatchCard").style.display = "block";
+      msg.textContent = "Confronto iniciado.";
+      msg.className = "small success";
+      startMatchTimer();
+      updateLiveMatchView();
+    }
+
+    function startMatchTimer() {
+      if (!currentMatch) return;
+      if (matchTimerId) clearInterval(matchTimerId);
+      const start = new Date(currentMatch.startedAt);
+      const el = document.getElementById("liveDuration");
+      const update = () => {
+        const now = new Date();
+        let diff = Math.floor((now - start) / 1000);
+        if (diff < 0) diff = 0;
+        const mins = Math.floor(diff / 60);
+        const secs = diff % 60;
+        if (el) el.textContent = "Tempo de partida: " + mins + " min " + secs.toString().padStart(2, "0") + " s";
+      };
+      update();
+      matchTimerId = setInterval(update, 1000);
+    }
+
+    function stopMatchTimer() {
+      if (matchTimerId) {
+        clearInterval(matchTimerId);
+        matchTimerId = null;
+      }
+    }
+
+    function adjustScore(side, delta) {
+      if (!currentMatch) return;
+      if (currentMatch.tieMode) return;
+      if (side === "AB") currentMatch.gamesAB = Math.max(0, currentMatch.gamesAB + delta);
+      else currentMatch.gamesCD = Math.max(0, currentMatch.gamesCD + delta);
+      if (currentMatch.gamesAB === 6 && currentMatch.gamesCD === 6 && !currentMatch.tieMode) {
+        currentMatch.tieMode = true;
+        currentMatch.tieAB = 0;
+        currentMatch.tieCD = 0;
+        document.getElementById("tieSection").style.display = "block";
+        document.getElementById("tieScore").textContent = "0 x 0";
+      }
+      updateLiveMatchView();
+    }
+
+    function adjustTie(side, delta) {
+      if (!currentMatch || !currentMatch.tieMode) return;
+      if (side === "AB") currentMatch.tieAB = Math.max(0, currentMatch.tieAB + delta);
+      else currentMatch.tieCD = Math.max(0, currentMatch.tieCD + delta);
+      updateLiveMatchView();
+    }
+
+    function updateLiveMatchView() {
+      const scoreEl = document.getElementById("liveScore");
+      const projEl = document.getElementById("liveProjection");
+      const tieSection = document.getElementById("tieSection");
+      const tieScoreEl = document.getElementById("tieScore");
+      if (!currentMatch) {
+        scoreEl.textContent = "";
+        projEl.textContent = "";
+        if (tieSection) tieSection.style.display = "none";
+        localStorage.removeItem("bt_current_match_preview");
+        return;
+      }
+      const a = findPlayer(currentMatch.aId), b = findPlayer(currentMatch.bId),
+            c = findPlayer(currentMatch.cId), d = findPlayer(currentMatch.dId);
+      if (!a || !b || !c || !d) {
+        scoreEl.textContent = "";
+        projEl.textContent = "";
+        return;
+      }
+
+      const posMap = getPositionsMap();
+      const posA = a ? (posMap[a.id] || "?") : "?";
+      const posB = b ? (posMap[b.id] || "?") : "?";
+      const posC = c ? (posMap[c.id] || "?") : "?";
+      const posD = d ? (posMap[d.id] || "?") : "?";
+      const liveTeamsEl = document.getElementById("liveTeams");
+      if (liveTeamsEl) {
+        liveTeamsEl.textContent =
+          "(" + posA + ") " + a.name + " & (" + posB + ") " + b.name +
+          "  vs  (" + posC + ") " + c.name + " & (" + posD + ") " + d.name;
+      }
+
+      let gAB = currentMatch.gamesAB, gCD = currentMatch.gamesCD;
+      if (!currentMatch.tieMode) {
+        scoreEl.textContent = "Placar: " + gAB + " x " + gCD;
+        if (gAB === 0 && gCD === 0) {
+          projEl.textContent = "Começo de partida: ainda sem projeção (0 x 0).";
+          localStorage.setItem("bt_current_match_preview", JSON.stringify({
+            aId: currentMatch.aId,
+            bId: currentMatch.bId,
+            cId: currentMatch.cId,
+            dId: currentMatch.dId,
+            duplaAB: a.name + " & " + b.name,
+            duplaCD: c.name + " & " + d.name,
+            gamesAB: gAB, gamesCD: gCD,
+            scoreCategory: "-", deltaAB: 0, deltaCD: 0
+          }));
+          return;
+        }
+        if (gAB === gCD) {
+          projEl.textContent = "Placar empatado (" + gAB + " x " + gCD + ").";
+          localStorage.setItem("bt_current_match_preview", JSON.stringify({
+            aId: currentMatch.aId,
+            bId: currentMatch.bId,
+            cId: currentMatch.cId,
+            dId: currentMatch.dId,
+            duplaAB: a.name + " & " + b.name,
+            duplaCD: c.name + " & " + d.name,
+            gamesAB: gAB, gamesCD: gCD,
+            scoreCategory: "-", deltaAB: 0, deltaCD: 0
+          }));
+          return;
+        }
+        const winnerSide = gAB > gCD ? "AB" : "CD";
+        const scoreCategory = inferScoreCategory(gAB, gCD);
+        const ra = a.rating, rb = b.rating, rc = c.rating, rd = d.rating;
+        const ratingAB = (ra + rb) / 2, ratingCD = (rc + rd) / 2;
+        const pAB = probVictory(ratingAB, ratingCD), pCD = 1 - pAB;
+        const resultAB = winnerSide === "AB" ? 1 : 0, resultCD = 1 - resultAB;
+        const mult = getMultiplier(scoreCategory);
+        const deltaAB = K * (resultAB - pAB) * mult, deltaCD = K * (resultCD - pCD) * mult;
+        projEl.innerHTML =
+          "Projeção se terminar agora (" + gAB + " x " + gCD +
+          "): categoria <strong>" + scoreCategory +
+          "</strong> · AB: <strong>" + (deltaAB >= 0 ? "+" : "") + deltaAB.toFixed(2) +
+          " pts</strong> · CD: <strong>" + (deltaCD >= 0 ? "+" : "") + deltaCD.toFixed(2) + " pts</strong>";
+        localStorage.setItem("bt_current_match_preview", JSON.stringify({
+          aId: currentMatch.aId,
+          bId: currentMatch.bId,
+          cId: currentMatch.cId,
+          dId: currentMatch.dId,
+          duplaAB: a.name + " & " + b.name,
+          duplaCD: c.name + " & " + d.name,
+          gamesAB: gAB, gamesCD: gCD,
+          scoreCategory, deltaAB, deltaCD
+        }));
+        return;
+      }
+      scoreEl.textContent = "Placar: 6 x 6 (tie-break)";
+      if (tieSection) tieSection.style.display = "block";
+      const tAB = currentMatch.tieAB, tCD = currentMatch.tieCD;
+      if (tieScoreEl) tieScoreEl.textContent = tAB + " x " + tCD;
+      let haveTieWinner = false, winnerSide = null;
+      if ((tAB >= 10 || tCD >= 10) && Math.abs(tAB - tCD) >= 2) {
+        haveTieWinner = true;
+        winnerSide = tAB > tCD ? "AB" : "CD";
+      }
+      if (!haveTieWinner) {
+        projEl.textContent = "Tie-break em andamento (" + tAB + " x " + tCD + ").";
+        localStorage.setItem("bt_current_match_preview", JSON.stringify({
+          aId: currentMatch.aId,
+          bId: currentMatch.bId,
+          cId: currentMatch.cId,
+          dId: currentMatch.dId,
+          duplaAB: a.name + " & " + b.name,
+          duplaCD: c.name + " & " + d.name,
+          gamesAB: 6, gamesCD: 6,
+          scoreCategory: "-", deltaAB: 0, deltaCD: 0
+        }));
+        return;
+      }
+      if (winnerSide === "AB") { gAB = 7; gCD = 6; } else { gAB = 6; gCD = 7; }
+      const scoreCategory = inferScoreCategory(gAB, gCD);
+      const ra = a.rating, rb = b.rating, rc = c.rating, rd = d.rating;
+      const ratingAB = (ra + rb) / 2, ratingCD = (rc + rd) / 2;
+      const pAB = probVictory(ratingAB, ratingCD), pCD = 1 - pAB;
+      const resultAB = winnerSide === "AB" ? 1 : 0, resultCD = 1 - resultAB;
+      const mult = getMultiplier(scoreCategory);
+      const deltaAB = K * (resultAB - pAB) * mult, deltaCD = K * (resultCD - pCD) * mult;
+      projEl.innerHTML =
+        "Tie-break (" + tAB + " x " + tCD +
+        "). Se terminar assim, placar final <strong>" + gAB + " x " + gCD +
+        "</strong>, categoria <strong>" + scoreCategory +
+        "</strong> · AB: <strong>" + (deltaAB >= 0 ? "+" : "") + deltaAB.toFixed(2) +
+        " pts</strong> · CD: <strong>" + (deltaCD >= 0 ? "+" : "") + deltaCD.toFixed(2) + " pts</strong>";
+      localStorage.setItem("bt_current_match_preview", JSON.stringify({
+        aId: currentMatch.aId,
+        bId: currentMatch.bId,
+        cId: currentMatch.cId,
+        dId: currentMatch.dId,
+        duplaAB: a.name + " & " + b.name,
+        duplaCD: c.name + " & " + d.name,
+        gamesAB: gAB, gamesCD: gCD,
+        scoreCategory, deltaAB, deltaCD
+      }));
+    }
+
+    function finishMatch() {
+      const msg = document.getElementById("matchMsg");
+      msg.className = "small";
+      if (!currentMatch) {
+        msg.textContent = "Nenhum confronto em andamento.";
+        msg.className = "small error"; return;
+      }
+      let gAB = currentMatch.gamesAB, gCD = currentMatch.gamesCD, winnerSide = null;
+      const a = findPlayer(currentMatch.aId), b = findPlayer(currentMatch.bId),
+            c = findPlayer(currentMatch.cId), d = findPlayer(currentMatch.dId);
+      if (!a || !b || !c || !d) {
+        msg.textContent = "Erro nos jogadores.";
+        msg.className = "small error"; return;
+      }
+      if (currentMatch.tieMode) {
+        const tAB = currentMatch.tieAB, tCD = currentMatch.tieCD;
+        if (!((tAB >= 10 || tCD >= 10) && Math.abs(tAB - tCD) >= 2)) {
+          msg.textContent = "Tie-break ainda sem vencedor (10+ pontos e diferença 2).";
+          msg.className = "small error"; return;
+        }
+        winnerSide = tAB > tCD ? "AB" : "CD";
+        if (winnerSide === "AB") { gAB = 7; gCD = 6; } else { gAB = 6; gCD = 7; }
+      } else {
+        if (gAB === gCD) {
+          msg.textContent = "Placar não pode ser empate.";
+          msg.className = "small error"; return;
+        }
+        const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD), diff = maxG - minG;
+        const validNormal = (maxG === 6 && diff >= 2) || (maxG === 7 && minG === 5);
+        if (!validNormal) {
+          msg.textContent = "Placar inválido. Use 6 com diferença 2 (até 6x4) ou 7x5. Para 6x6, use tie-break.";
+          msg.className = "small error"; return;
+        }
+        winnerSide = gAB > gCD ? "AB" : "CD";
+      }
+      const scoreCategory = inferScoreCategory(gAB, gCD);
+      const ra = a.rating, rb = b.rating, rc = c.rating, rd = d.rating;
+      const ratingAB = (ra + rb) / 2, ratingCD = (rc + rd) / 2;
+      const pAB = probVictory(ratingAB, ratingCD), pCD = 1 - pAB;
+      const resultAB = winnerSide === "AB" ? 1 : 0, resultCD = 1 - resultAB;
+      const mult = getMultiplier(scoreCategory);
+      const deltaAB = K * (resultAB - pAB) * mult, deltaCD = K * (resultCD - pCD) * mult;
+      a.rating = ra + deltaAB; b.rating = rb + deltaAB;
+      c.rating = rc + deltaCD; d.rating = rd + deltaCD;
+
+      let durationText = "";
+      try {
+        const start = new Date(currentMatch.startedAt);
+        const now = new Date();
+        let diff = Math.floor((now - start) / 1000);
+        if (diff < 0) diff = 0;
+        const mins = Math.floor(diff / 60);
+        const secs = diff % 60;
+        durationText = " Duração: " + mins + " min " + secs.toString().padStart(2, "0") + " s.";
+      } catch (e) {
+        durationText = "";
+      }
+
+      state.matches.push({
+        id: state.matches.length + 1,
+        date: new Date().toISOString(),
+        player_a_id: currentMatch.aId,
+        player_b_id: currentMatch.bId,
+        player_c_id: currentMatch.cId,
+        player_d_id: currentMatch.dId,
+        games_ab: gAB,
+        games_cd: gCD,
+        winner_side: winnerSide,
+        score_category: scoreCategory,
+        delta_ab: deltaAB,
+        delta_cd: deltaCD,
+        started_at: currentMatch.startedAt
+      });
+      saveState();
+      localStorage.removeItem("bt_current_match_preview");
+      stopMatchTimer();
+      currentMatch = null;
+      document.getElementById("liveMatchCard").style.display = "none";
+      document.getElementById("liveScore").textContent = "";
+      document.getElementById("liveProjection").textContent = "";
+      document.getElementById("tieSection").style.display = "none";
+      document.getElementById("liveDuration").textContent = "";
+      msg.textContent = "Partida registrada! Placar final: " + gAB + " x " + gCD + "." + durationText;
+      msg.className = "small success";
+      ["playerA","playerB","playerC","playerD"].forEach(id => {
+        const sel = document.getElementById(id);
+        if (sel) sel.value = "";
+      });
+      renderRanking(); renderMatches();
+      renderGeneratorPlayers();
+    }
+
+    function cancelMatch() {
+      stopMatchTimer();
+      currentMatch = null;
+      localStorage.removeItem("bt_current_match_preview");
+      document.getElementById("liveMatchCard").style.display = "none";
+      document.getElementById("liveScore").textContent = "";
+      document.getElementById("liveProjection").textContent = "";
+      document.getElementById("tieSection").style.display = "none";
+      document.getElementById("liveDuration").textContent = "";
+    }
+
+    function renderRanking() {
+      const tbody = document.querySelector("#rankingTable tbody");
+      tbody.innerHTML = "";
+      const sorted = [...state.players].sort((a, b) => b.rating - a.rating);
+      const prev = state.lastPositions || {}, nextPositions = {};
+      sorted.forEach((p, idx) => {
+        const pos = idx + 1; nextPositions[p.id] = pos;
+        let varHtml = "";
+        if (!prev[p.id]) varHtml = '<span style="color:#2980b9;">●</span>';
+        else {
+          const delta = prev[p.id] - pos;
+          if (delta > 0) varHtml = '<span style="color:#1e8449;">▲</span>';
+          else if (delta < 0) varHtml = '<span style="color:#c0392b;">▼</span>';
+          else varHtml = '<span style="color:#2980b9;">●</span>';
+        }
+        const jogos = getGamesCount(p.id);
+        const stats = getPlayerStats(p.id);
+        const streak = getLastFiveResults(p.id);
+        const tr = document.createElement("tr");
+        if (idx === 0) { tr.style.backgroundColor = "#d4edda"; tr.style.fontWeight = "bold"; }
+        if (idx === sorted.length - 1 && sorted.length > 0) {
+          tr.style.backgroundColor = "#f8d7da"; tr.style.fontWeight = "bold";
+        }
+        tr.innerHTML =
+          "<td>" + pos + "</td>" +
+          "<td>" + p.name + "</td>" +
+          "<td><strong>" + p.rating.toFixed(2) + "</strong></td>" +
+          "<td>" + jogos + "</td>" +
+          "<td>" + stats.wins + "</td>" +
+          "<td>" + stats.losses + "</td>" +
+          "<td>" + stats.saldo + "</td>" +
+          "<td>" + varHtml + "</td>" +
+          "<td>" + streak + "</td>";
+        tbody.appendChild(tr);
+      });
+      state.lastPositions = nextPositions;
+      saveState();
+      refreshPlayerSelects();
+    }
+
+    function renderMatches() {
+      const tbody = document.querySelector("#matchesTable tbody");
+      tbody.innerHTML = "";
+      const sorted = [...state.matches].sort((a, b) => b.id - a.id);
+      sorted.forEach(m => {
+        const a = findPlayer(m.player_a_id), b = findPlayer(m.player_b_id),
+              c = findPlayer(m.player_c_id), d = findPlayer(m.player_d_id);
+        const dateStr = new Date(m.date).toLocaleString();
+        const duplaAB = (a ? a.name : "?") + " & " + (b ? b.name : "?");
+        const duplaCD = (c ? c.name : "?") + " & " + (d ? d.name : "?");
+        const winner = m.winner_side === "AB" ? duplaAB : duplaCD;
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + m.id + "</td>" +
+          "<td>" + dateStr + "</td>" +
+          "<td>" + duplaAB + "</td>" +
+          "<td>" + duplaCD + "</td>" +
+          "<td>" + m.games_ab + " x " + m.games_cd + "</td>" +
+          "<td>" + winner + "</td>" +
+          "<td>" + m.score_category + "</td>" +
+          "<td>" + m.delta_ab.toFixed(2) + "</td>" +
+          "<td>" + m.delta_cd.toFixed(2) + "</td>" +
+          "<td><button class='small danger' onclick='deleteMatch(" + m.id + ")'>Excluir</button></td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function recomputeAll() {
+      state.players.forEach(p => p.rating = PTS_INICIAL);
+      const ordered = [...state.matches].sort((a, b) => a.id - b.id);
+      ordered.forEach(m => {
+        const a = findPlayer(m.player_a_id), b = findPlayer(m.player_b_id),
+              c = findPlayer(m.player_c_id), d = findPlayer(m.player_d_id);
+        if (!a || !b || !c || !d) return;
+        const gAB = m.games_ab, gCD = m.games_cd;
+        const winnerSide = gAB > gCD ? "AB" : "CD";
+        const scoreCategory = inferScoreCategory(gAB, gCD);
+        const ra = a.rating, rb = b.rating, rc = c.rating, rd = d.rating;
+        const ratingAB = (ra + rb) / 2, ratingCD = (rc + rd) / 2;
+        const pAB = probVictory(ratingAB, ratingCD), pCD = 1 - pAB;
+        const resultAB = winnerSide === "AB" ? 1 : 0, resultCD = 1 - resultAB;
+        const mult = getMultiplier(scoreCategory);
+        const deltaAB = K * (resultAB - pAB) * mult, deltaCD = K * (resultCD - pCD) * mult;
+        a.rating = ra + deltaAB; b.rating = rb + deltaAB;
+        c.rating = rc + deltaCD; d.rating = rd + deltaCD;
+        m.winner_side = winnerSide; m.score_category = scoreCategory;
+        m.delta_ab = deltaAB; m.delta_cd = deltaCD;
+      });
+      saveState();
+      renderRanking();
+      renderMatches();
+      renderGeneratorPlayers();
+    }
+
+    function deleteMatch(id) {
+      if (!confirm("Excluir este jogo? O ranking será recalculado.")) return;
+      state.matches = state.matches.filter(m => m.id !== id);
+      recomputeAll();
+      renderQueue();
+    }
+
+    function clearData() {
+      if (!confirm("Apagar todos os dados da temporada?")) return;
+      state = {
+        players: [],
+        matches: [],
+        lastPositions: {},
+        queue: [],
+        config: {
+          rankingName: "Ranking de Beach Tennis",
+          seasonLabel: SEASON_YEAR.toString()
+        }
+      };
+      saveState();
+      localStorage.removeItem("bt_current_match_preview");
+      currentMatch = null;
+      stopMatchTimer();
+      document.getElementById("liveMatchCard").style.display = "none";
+      document.getElementById("liveScore").textContent = "";
+      document.getElementById("liveProjection").textContent = "";
+      document.getElementById("tieSection").style.display = "none";
+      document.getElementById("liveDuration").textContent = "";
+      renderRanking();
+      renderMatches();
+      renderQueue();
+      refreshPlayerSelects();
+      applyConfigUI();
+      renderGeneratorPlayers();
+      const pm = document.getElementById("playerMsg");
+      if (pm) { pm.textContent = "Dados apagados."; pm.className = "small success"; }
+    }
+
+    function exportBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const a = document.createElement("a");
+      const season = state.config?.seasonLabel || SEASON_YEAR.toString();
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      a.href = dataStr;
+      a.download = "backup_beach_tennis_" + season + "_" + ts + ".json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const msg = document.getElementById("backupMsg");
+      if (msg) { msg.textContent = "Backup gerado."; msg.className = "small success"; }
+    }
+
+    function importBackup(e) {
+      const file = e.target.files[0];
+      const msg = document.getElementById("backupMsg");
+      if (msg) msg.className = "small";
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          const obj = JSON.parse(ev.target.result);
+          if (!obj.players || !obj.matches) {
+            if (msg) { msg.textContent = "Backup inválido."; msg.className = "small error"; }
+            return;
+          }
+          if (!obj.lastPositions) obj.lastPositions = {};
+          if (!obj.queue) obj.queue = [];
+          if (!obj.config) {
+            obj.config = {
+              rankingName: "Ranking de Beach Tennis",
+              seasonLabel: SEASON_YEAR.toString()
+            };
+          }
+          state = obj;
+          saveState();
+          refreshPlayerSelects();
+          recomputeAll();
+          renderQueue();
+          applyConfigUI();
+          if (msg) { msg.textContent = "Backup carregado e aplicado."; msg.className = "small success"; }
+        } catch (err) {
+          console.error(err);
+          if (msg) { msg.textContent = "Erro ao ler backup."; msg.className = "small error"; }
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function openCadastro(){ document.getElementById("cadastroOverlay").style.display="flex"; }
+    function closeCadastro(){ document.getElementById("cadastroOverlay").style.display="none"; }
+    function openBackup(){ document.getElementById("backupOverlay").style.display="flex"; }
+    function closeBackup(){ document.getElementById("backupOverlay").style.display="none"; }
+    function openRules(){ document.getElementById("rulesOverlay").style.display="flex"; }
+    function closeRules(){ document.getElementById("rulesOverlay").style.display="none"; }
+
+    // ====== GERADOR DE CONFRONTOS ======
+
+    function isToday(dateStr) {
+      const d = new Date(dateStr);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() &&
+             d.getMonth() === now.getMonth() &&
+             d.getDate() === now.getDate();
+    }
+
+    function getTodayStats(playerId) {
+      let jogosHoje = 0;
+      state.matches.forEach(m => {
+        if (!isToday(m.date)) return;
+        if (m.player_a_id === playerId || m.player_b_id === playerId ||
+            m.player_c_id === playerId || m.player_d_id === playerId) {
+          jogosHoje++;
+        }
+      });
+      return { jogosHoje };
+    }
+
+    function renderGeneratorPlayers() {
+      const container = document.getElementById("genPlayersList");
+      if (!container) return;
+      container.innerHTML = "";
+      if (!state.players.length) {
+        container.innerHTML = "<p class='small'>Nenhum jogador cadastrado.</p>";
+        return;
+      }
+      const posMap = getPositionsMap();
+      const playersOrdered = [...state.players].sort((a, b) => b.rating - a.rating);
+      playersOrdered.forEach(p => {
+        const pos = posMap[p.id] || "?";
+        if (availability[p.id] === undefined) availability[p.id] = true; // default disponível
+        const stats = getPlayerStats(p.id);
+        const today = getTodayStats(p.id);
+        const row = document.createElement("div");
+        row.className = "gen-player-row";
+        row.innerHTML = `
+          <div class="gen-player-main">
+            <input type="checkbox" ${availability[p.id] ? "checked" : ""} onchange="toggleAvailable(${p.id}, this.checked)" />
+            <span>#${pos} ${p.name}</span>
+          </div>
+          <div class="gen-player-meta">
+            <div>${p.rating.toFixed(0)} pts</div>
+            <div>Jgs hoje: ${today.jogosHoje}</div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function toggleAvailable(playerId, checked) {
+      availability[playerId] = checked;
+    }
+
+    function selectAllAvailable() {
+      state.players.forEach(p => availability[p.id] = true);
+      renderGeneratorPlayers();
+    }
+
+    function clearAllAvailable() {
+      state.players.forEach(p => availability[p.id] = false);
+      renderGeneratorPlayers();
+    }
+
+    function generateSuggestedMatches() {
+      const msg = document.getElementById("genMsg");
+      const list = document.getElementById("genMatchesList");
+      msg.className = "small";
+      msg.textContent = "";
+      list.innerHTML = "";
+
+      const mode = document.getElementById("genMode").value;
+      const courts = parseInt(document.getElementById("genCourts").value) || 1;
+
+      const posMap = getPositionsMap();
+      let availablePlayers = state.players.filter(p => availability[p.id]);
+      if (availablePlayers.length < 4) {
+        msg.textContent = "Selecione pelo menos 4 jogadores disponíveis.";
+        msg.className = "small error";
+        return;
+      }
+
+      if (mode === "balanceado" || mode === "desafio") {
+        availablePlayers.sort((a, b) => b.rating - a.rating);
+      } else if (mode === "misturado") {
+        availablePlayers.sort(() => Math.random() - 0.5);
+      }
+
+      suggestedMatches = [];
+
+      let pool = [...availablePlayers];
+      while (pool.length >= 4 && suggestedMatches.length < courts) {
+        let group;
+        if (pool.length === 4) {
+          group = pool.splice(0, 4);
+        } else {
+          group = pool.splice(0, 4);
+        }
+        let p1 = group[0], p2 = group[1], p3 = group[2], p4 = group[3];
+
+        if (mode === "balanceado") {
+          // dupla AB: melhor + pior, CD: intermediários
+          const sortedGroup = [...group].sort((a,b)=>b.rating-a.rating);
+          p1 = sortedGroup[0]; p2 = sortedGroup[3];
+          p3 = sortedGroup[1]; p4 = sortedGroup[2];
+        } else if (mode === "desafio") {
+          const sortedGroup = [...group].sort((a,b)=>b.rating-a.rating);
+          p1 = sortedGroup[0]; p2 = sortedGroup[1];
+          p3 = sortedGroup[2]; p4 = sortedGroup[3];
+        }
+
+        const ratingAB = (p1.rating + p2.rating) / 2;
+        const ratingCD = (p3.rating + p4.rating) / 2;
+        const diff = Math.abs(ratingAB - ratingCD);
+
+        suggestedMatches.push({
+          aId: p1.id,
+          bId: p2.id,
+          cId: p3.id,
+          dId: p4.id,
+          meta: {
+            ratingAB,
+            ratingCD,
+            diff,
+            posA: posMap[p1.id] || "?",
+            posB: posMap[p2.id] || "?",
+            posC: posMap[p3.id] || "?",
+            posD: posMap[p4.id] || "?"
+          }
+        });
+      }
+
+      if (!suggestedMatches.length) {
+        msg.textContent = "Não foi possível formar confrontos com os jogadores disponíveis.";
+        msg.className = "small error";
+        return;
+      }
+
+      msg.textContent = "Foram sugeridos " + suggestedMatches.length + " confronto(s). Revise e envie para a fila.";
+      msg.className = "small success";
+
+      renderSuggestedMatches();
+    }
+
+    function renderSuggestedMatches() {
+      const list = document.getElementById("genMatchesList");
+      list.innerHTML = "";
+      const posMap = getPositionsMap();
+
+      suggestedMatches.forEach((m, idx) => {
+        const a = findPlayer(m.aId), b = findPlayer(m.bId),
+              c = findPlayer(m.cId), d = findPlayer(m.dId);
+        const meta = m.meta || {};
+        const div = document.createElement("div");
+        div.className = "gen-match-card";
+
+        const modeLabelEl = document.getElementById("genMode");
+        const modeLabel = modeLabelEl ? modeLabelEl.options[modeLabelEl.selectedIndex].textContent : "";
+
+        div.innerHTML = `
+          <div class="gen-match-header">
+            <span>Confronto #${idx + 1}</span>
+            <span class="small">${modeLabel}</span>
+          </div>
+          <div class="gen-match-teams">
+            <div>
+              <strong>Dupla AB:</strong>
+              (${meta.posA || posMap[m.aId] || "?"}) ${a ? a.name : "?"} &
+              (${meta.posB || posMap[m.bId] || "?"}) ${b ? b.name : "?"}
+            </div>
+            <div>
+              <strong>Dupla CD:</strong>
+              (${meta.posC || posMap[m.cId] || "?"}) ${c ? c.name : "?"} &
+              (${meta.posD || posMap[m.dId] || "?"}) ${d ? d.name : "?"}
+            </div>
+          </div>
+          <div class="gen-match-meta">
+            Média ELO AB: ${meta.ratingAB ? meta.ratingAB.toFixed(0) : "-"} ·
+            Média ELO CD: ${meta.ratingCD ? meta.ratingCD.toFixed(0) : "-"} ·
+            Diferença: ${meta.diff ? meta.diff.toFixed(0) : "-"} pts
+          </div>
+          <div style="margin-top:4px;">
+            <button class="small" onclick="sendSuggestedToQueue(${idx})">Enviar p/ fila</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function sendSuggestedToQueue(index) {
+      if (!suggestedMatches[index]) return;
+      const m = suggestedMatches[index];
+      state.queue.push({
+        id: nextQueueId(),
+        aId: m.aId,
+        bId: m.bId,
+        cId: m.cId,
+        dId: m.dId,
+        createdAt: new Date().toISOString()
+      });
+      saveState();
+      renderQueue();
+      const msg = document.getElementById("genMsg");
+      if (msg) {
+        msg.textContent = "Confronto #" + (index + 1) + " enviado para a fila.";
+        msg.className = "small success";
+      }
+    }
+
+    loadState();
+    applyConfigUI();
+    refreshPlayerSelects();
+    renderRanking();
+    renderMatches();
+    renderQueue();
+    renderGeneratorPlayers();
+  
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
+</script>
+
+<style>
+  .qr-sync-card {
+    background:#fff;
+    border:1px solid #ddd;
+    padding:16px;
+    border-radius:8px;
+    width:100%;
+    max-width:1100px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.05);
+    margin-top:16px;
+  }
+  .qr-grid {
+    display:grid;
+    grid-template-columns: minmax(320px, 1.2fr) minmax(260px, 0.8fr);
+    gap:16px;
+    align-items:start;
+  }
+  .qr-actions {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+  .qr-box {
+    background:#fafafa;
+    border:1px solid #eee;
+    border-radius:8px;
+    padding:12px;
+  }
+  .qr-preview-wrap {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+  #qrLaunchPreview {
+    width:220px;
+    height:220px;
+    object-fit:contain;
+    border:1px solid #ddd;
+    border-radius:8px;
+    background:#fff;
+    display:none;
+  }
+  #qrLaunchLink {
+    width:100%;
+    font-size:0.8rem;
+    word-break:break-all;
+    color:#0077cc;
+  }
+  .qr-pill {
+    display:inline-block;
+    padding:3px 8px;
+    border-radius:999px;
+    background:#eef5ff;
+    font-size:0.76rem;
+    margin-right:6px;
+    margin-top:6px;
+  }
+  @media (max-width: 880px) {
+    .qr-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+  const BT_QR_STORAGE_KEY = "bt_qr_sync_config_v1";
+  let btQrPollTimer = null;
+
+  function defaultMobilePageUrl() {
+    try {
+      const current = window.location.href.split("#")[0].split("?")[0];
+      return current.replace(/ranking_beach_tennis_elo_local_v19(?:_regerado)?(?:_qr_firebase_v20)?\.html$/i, "lancamento_qr_beach_tennis_v1.html");
+    } catch (e) {
+      return "lancamento_qr_beach_tennis_v1.html";
+    }
+  }
+
+  function loadQrConfig() {
+    return {
+      databaseURL: DATABASE_URL,
+      mobilePageURL: ""
+    };
+  }
+      const obj = JSON.parse(raw);
+      if (!obj.mobilePageURL) obj.mobilePageURL = defaultMobilePageUrl();
+      if (!obj.databaseURL) obj.databaseURL = "";
+      return obj;
+    } catch (e) {
+      return { databaseURL: "", mobilePageURL: defaultMobilePageUrl() };
+    }
+  }
+
+  function saveQrConfigLocal() {
+    return {
+      databaseURL: DATABASE_URL,
+      mobilePageURL: ""
+    };
+  };
+    localStorage.setItem(BT_QR_STORAGE_KEY, JSON.stringify(cfg));
+    setQrStatus("Configuração QR salva no navegador.", "success");
+    updateLaunchQrPreview();
+    restartQrPolling();
+    return cfg;
+  }
+
+  function setQrStatus(message, type) {
+    const el = document.getElementById("btQrStatus");
+    if (!el) return;
+    el.textContent = message || "";
+    el.className = "small " + (type || "");
+  }
+
+  function btQrDbUrl(path) {
+    const cfg = loadQrConfig();
+    if (!cfg.databaseURL) throw new Error("Informe a URL do Realtime Database.");
+    const cleanPath = String(path || "").replace(/^\/+|\/+$/g, "");
+    return cfg.databaseURL + "/" + cleanPath + ".json";
+  }
+
+  async function btQrGet(path) {
+    const res = await fetch(btQrDbUrl(path), { method: "GET" });
+    if (!res.ok) throw new Error("Falha ao ler dados remotos.");
+    return await res.json();
+  }
+
+  async function btQrPut(path, data) {
+    const res = await fetch(btQrDbUrl(path), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Falha ao gravar dados remotos.");
+    return await res.json();
+  }
+
+  async function btQrPatch(path, data) {
+    const res = await fetch(btQrDbUrl(path), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Falha ao atualizar dados remotos.");
+    return await res.json();
+  }
+
+  function insertQrSyncPanel() {
+    return;
+  }
+
+  function updateLaunchQrPreview() {
+    return;
+  }
+    const launchUrl = mobilePageURL + "?db=" + encodeURIComponent(databaseURL);
+    img.src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(launchUrl);
+    img.style.display = "block";
+    linkEl.textContent = launchUrl;
+  }
+
+  async function testQrConnection() {
+    try {
+      await btQrGet("bt_tv/heartbeat");
+      setQrStatus("Conexão OK com o Firebase.", "success");
+    } catch (e) {
+      setQrStatus("Não consegui conectar ao Firebase.", "error");
+    }
+  } catch (e) {
+      setQrStatus("Não consegui conectar. Revise a URL do Firebase e as regras do banco.", "error");
+    }
+  }
+
+  async function syncPlayersToQrCloud() {
+    try {
+      const payload = {
+        rankingName: state.config?.rankingName || "Ranking de Beach Tennis",
+        seasonLabel: state.config?.seasonLabel || "",
+        rulesText: state.config?.rulesText || __btExtractRulesText() || "",
+        updatedAt: new Date().toISOString(),
+        players: (state.players || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          rating: Number((p.rating || 0).toFixed(2))
+        }))
+      };
+      await btQrPut("bt_qr/config", payload);
+      setQrStatus("Jogadores sincronizados com sucesso.", "success");
+    } catch (e) {
+      console.error(e);
+      setQrStatus("Falha ao sincronizar jogadores.", "error");
+    }
+  }))
+      };
+      await btQrPut("bt_qr/config", payload);
+      setQrStatus("Jogadores sincronizados com sucesso para o lançamento por QR.", "success");
+      updateLaunchQrPreview();
+    } catch (e) {
+      console.error(e);
+      setQrStatus("Falha ao sincronizar jogadores. Confira a configuração do Firebase.", "error");
+    }
+  }
+
+  function validateSubmittedScore(gAB, gCD) {
+    if (![gAB, gCD].every(v => Number.isFinite(v) && v >= 0)) return { ok:false, reason:"Placar inválido." };
+    if (gAB === gCD) return { ok:false, reason:"Placar não pode empatar." };
+    const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD), diff = maxG - minG;
+    const isSuper = maxG >= 10 && diff >= 2;
+    const isNormal = (maxG === 6 && diff >= 2 && minG <= 4) || (maxG === 7 && (minG === 5 || minG === 6));
+    if (!isSuper && !isNormal) {
+      return { ok:false, reason:"Use 6x0 a 6x4, 7x5, 7x6 ou super tie-break (10+ com diferença 2)." };
+    }
+    return { ok:true, isSuper };
+  }
+
+  function importQrSubmissionRecord(submissionId, sub) {
+    if (!sub || sub.status !== "pending") return false;
+    if (state.matches.some(m => m.source_submission_id === submissionId)) return false;
+
+    const a = findPlayer(parseInt(sub.aId));
+    const b = findPlayer(parseInt(sub.bId));
+    const c = findPlayer(parseInt(sub.cId));
+    const d = findPlayer(parseInt(sub.dId));
+    if (!a || !b || !c || !d) return false;
+    if (new Set([a.id,b.id,c.id,d.id]).size !== 4) return false;
+
+    let gAB = parseInt(sub.gamesAB);
+    let gCD = parseInt(sub.gamesCD);
+    const valid = validateSubmittedScore(gAB, gCD);
+    if (!valid.ok) return false;
+
+    const winnerSide = gAB > gCD ? "AB" : "CD";
+    const scoreCategory = inferScoreCategory(gAB, gCD);
+    const ra = a.rating, rb = b.rating, rc = c.rating, rd = d.rating;
+    const ratingAB = (ra + rb) / 2, ratingCD = (rc + rd) / 2;
+    const pAB = probVictory(ratingAB, ratingCD), pCD = 1 - pAB;
+    const resultAB = winnerSide === "AB" ? 1 : 0, resultCD = 1 - resultAB;
+    const mult = getMultiplier(scoreCategory);
+    const deltaAB = K * (resultAB - pAB) * mult, deltaCD = K * (resultCD - pCD) * mult;
+
+    a.rating = ra + deltaAB;
+    b.rating = rb + deltaAB;
+    c.rating = rc + deltaCD;
+    d.rating = rd + deltaCD;
+
+    state.matches.push({
+      id: state.matches.length + 1,
+      date: sub.submittedAt || new Date().toISOString(),
+      player_a_id: a.id,
+      player_b_id: b.id,
+      player_c_id: c.id,
+      player_d_id: d.id,
+      games_ab: gAB,
+      games_cd: gCD,
+      winner_side: winnerSide,
+      score_category: scoreCategory,
+      delta_ab: deltaAB,
+      delta_cd: deltaCD,
+      started_at: sub.startedAt || null,
+      source: "qr",
+      source_submission_id: submissionId,
+      submitted_by: sub.submittedBy || ""
+    });
+    return true;
+  }
+
+  async function processQrPendingNow(silent) {
+    try {
+      const pending = await btQrGet("bt_qr/submissions");
+      let imported = 0;
+      if (pending && typeof pending === "object") {
+        const keys = Object.keys(pending).sort((a,b) => {
+          const da = new Date(pending[a]?.submittedAt || 0).getTime();
+          const db = new Date(pending[b]?.submittedAt || 0).getTime();
+          return da - db;
+        });
+        for (const key of keys) {
+          const sub = pending[key];
+          const ok = importQrSubmissionRecord(key, sub);
+          if (ok) {
+            imported += 1;
+            await btQrPatch("bt_qr/submissions/" + key, {
+              status: "imported",
+              importedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+      if (imported > 0) {
+        saveState();
+        renderRanking();
+        renderMatches();
+        renderGeneratorPlayers();
+        refreshPlayerSelects();
+        if (!silent) setQrStatus(imported + " lançamento(s) importado(s) com sucesso.", "success");
+      } else if (!silent) {
+        setQrStatus("Nenhum lançamento pendente para importar.", "small");
+      }
+    } catch (e) {
+      console.error(e);
+      if (!silent) setQrStatus("Erro ao ler lançamentos pendentes do QR.", "error");
+    }
+  }
+
+  function restartQrPolling() {
+    if (btQrPollTimer) clearInterval(btQrPollTimer);
+    const cfg = loadQrConfig();
+    if (!cfg.databaseURL) return;
+    btQrPollTimer = setInterval(() => processQrPendingNow(true), 8000);
+  }
+
+  const __btOriginalClearData = typeof clearData === "function" ? clearData : null;
+  if (__btOriginalClearData) {
+    clearData = function() {
+      __btOriginalClearData();
+      restartQrPolling();
+    };
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    restartQrPolling();
+    setTimeout(() => processQrPendingNow(true), 1200);
+  });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
+</script>
+
+
+<script>
+  const BT_QR_STORAGE_KEY_FALLBACK = "bt_qr_sync_config_v1";
+  let __btTvSyncTimer = null;
+
+  function __btTvLoadConfig() {
+    try {
+      if (typeof loadQrConfig === "function") return loadQrConfig();
+    } catch (e) {}
+    try {
+      const raw = localStorage.getItem(BT_QR_STORAGE_KEY_FALLBACK);
+      return raw ? JSON.parse(raw) : { databaseURL: "" };
+    } catch (e) {
+      return { databaseURL: "" };
+    }
+  }
+
+  function __btTvDbUrl(path) {
+    const cfg = __btTvLoadConfig();
+    const databaseURL = (cfg?.databaseURL || "").trim().replace(/\/+$/,"");
+    if (!databaseURL) return "";
+    const cleanPath = String(path || "").replace(/^\/+|\/+$/g, "");
+    return databaseURL + "/" + cleanPath + ".json";
+  }
+
+  async function __btTvPut(path, data) {
+    const url = __btTvDbUrl(path);
+    if (!url) return;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("Falha ao sincronizar tela online.");
+    return await res.json();
+  }
+
+  function __btTvSlimState() {
+    try {
+      const raw = localStorage.getItem("bt_elo_state");
+      if (!raw) return null;
+      const state = JSON.parse(raw);
+      state.config = state.config || {};
+      state.config.rulesText = state.config.rulesText || __btExtractRulesText() || "";
+      return {
+        config: state.config || {},
+        players: Array.isArray(state.players) ? state.players : [],
+        matches: Array.isArray(state.matches) ? state.matches : [],
+        queue: Array.isArray(state.queue) ? state.queue : [],
+        lastPositions: state.lastPositions || {},
+        updatedAt: new Date().toISOString()
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function __btTvPreview() {
+    try {
+      const raw = localStorage.getItem("bt_current_match_preview");
+      if (!raw) return null;
+      const preview = JSON.parse(raw);
+      preview.updatedAt = new Date().toISOString();
+      return preview;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function __btTvSyncNow(silent) {
+    try {
+      const cfg = __btTvLoadConfig();
+      if (!cfg?.databaseURL) return;
+      const state = __btTvSlimState();
+      await __btTvPut("bt_tv/state", state || { empty: true, updatedAt: new Date().toISOString() });
+      await __btTvPut("bt_tv/current_match_preview", __btTvPreview());
+      await __btTvPut("bt_tv/heartbeat", {
+        updatedAt: new Date().toISOString(),
+        source: "ranking_principal"
+      });
+      if (!silent) console.log("TV online sincronizada com Firebase.");
+    } catch (e) {
+      if (!silent) console.error(e);
+    }
+  }
+
+  function __btTvStartSyncLoop() {
+    if (__btTvSyncTimer) clearInterval(__btTvSyncTimer);
+    __btTvSyncTimer = setInterval(function(){ __btTvSyncNow(true); }, 5000);
+    setTimeout(function(){ __btTvSyncNow(true); }, 1200);
+  }
+
+  const __btTvOriginalSaveState = typeof saveState === "function" ? saveState : null;
+  if (__btTvOriginalSaveState) {
+    saveState = function() {
+      __btTvOriginalSaveState();
+      __btTvSyncNow(true);
+    };
+  }
+
+  const __btTvOriginalRenderLiveProjection = typeof renderLiveProjection === "function" ? renderLiveProjection : null;
+  if (__btTvOriginalRenderLiveProjection) {
+    renderLiveProjection = function() {
+      __btTvOriginalRenderLiveProjection();
+      __btTvSyncNow(true);
+    };
+  }
+
+  window.addEventListener("storage", function(ev) {
+    if (ev.key === "bt_elo_state" || ev.key === "bt_current_match_preview" || ev.key === BT_QR_STORAGE_KEY_FALLBACK) {
+      __btTvSyncNow(true);
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", function() {
+    __btTvStartSyncLoop();
+    syncPlayersToQrCloud();
+    processQrPendingNow(true);
+  });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
+</script>
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    try {
+      const raw = localStorage.getItem("bt_elo_state");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.config = parsed.config || {};
+        const extracted = __btExtractRulesText();
+        if (extracted && parsed.config.rulesText !== extracted) {
+          parsed.config.rulesText = extracted;
+          localStorage.setItem("bt_elo_state", JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {}
+  });
+
+function resetRanking() {
+  if (!confirm("Tem certeza que deseja zerar o ranking (manter jogadores)?")) return;
+
+  state.matches = [];
+  state.queue = [];
+  state.players.forEach(p => p.rating = 1000);
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Ranking resetado!");
+}
+
+function clearAllData() {
+  if (prompt("Digite LIMPAR para confirmar") !== "LIMPAR") return;
+
+  state.players = [];
+  state.matches = [];
+  state.queue = [];
+  state.lastPositions = {};
+  localStorage.removeItem("bt_current_match_preview");
+
+  saveState();
+  renderRanking();
+  renderMatches();
+  renderGeneratorPlayers();
+  refreshPlayerSelects();
+
+  if (typeof __btTvSyncNow === "function") __btTvSyncNow();
+
+  alert("Tudo apagado!");
+}
+
+</script>
+
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;opacity:0.5;z-index:9999;">INDEX v24</div>
+</body>
+</html>
