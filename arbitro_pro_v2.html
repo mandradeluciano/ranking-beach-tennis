@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Árbitro Pro 1.0 - Ranking Beach Tennis</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg,#eef5ff 0%, #f7fbff 100%);
+      color: #1f2d3d;
+    }
+    .wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e6ebf2;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.05);
+      margin-bottom: 14px;
+    }
+    h1,h2 { margin: 0 0 10px 0; }
+    .small { font-size: 0.88rem; color: #5f6c7b; }
+    label { display:block; margin-top: 10px; font-size: 0.92rem; font-weight: bold; }
+    input, select, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccd6e0;
+      margin-top: 6px;
+      font-size: 1rem;
+    }
+    button {
+      border: none;
+      background: #006fd6;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+    button.secondary { background: #5f6c7b; }
+    .row {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .dupla {
+      border: 1px solid #e7eef6;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+      background: #fbfdff;
+    }
+    .score-box {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items:end;
+    }
+    .score-big {
+      font-size: 2rem;
+      text-align:center;
+      font-weight:bold;
+    }
+    .success { color: #157347; }
+    .error { color: #b42318; }
+    @media (max-width: 640px) {
+      .row, .score-box { grid-template-columns: 1fr; }
+    }
+
+    .hero {
+      background: linear-gradient(135deg,#03233e 0%,#0a4d88 100%);
+      color:#fff;
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    .hero h1, .hero h2 { color:#fff; }
+    .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+    .kpi{ background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:10px 12px; }
+    .kpi .label{ font-size:0.75rem; opacity:0.85; }
+    .kpi .value{ font-size:1.1rem; font-weight:700; margin-top:4px; }
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px; background:#eef4fb; color:#35516e; font-size:0.82rem; border:1px solid #dbe6f2; }
+    .footer-note{ text-align:center; font-size:0.8rem; color:#5f6c7b; margin:8px 0 20px; }
+    @media (max-width: 640px) { .kpis{ grid-template-columns:1fr; } }
+  
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:9999;
+}
+.modal-backdrop.open{ display:flex; }
+.modal-card{
+  width:min(520px,100%);
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  box-shadow:0 18px 40px rgba(0,0,0,0.22);
+}
+.modal-title{
+  font-size:1.2rem;
+  font-weight:700;
+  margin-bottom:10px;
+}
+.summary-box{
+  background:#f6f9fc;
+  border:1px solid #d9e3ee;
+  border-radius:12px;
+  padding:14px;
+  margin:12px 0;
+  line-height:1.5;
+}
+.summary-score{
+  font-size:2rem;
+  font-weight:800;
+  text-align:center;
+  margin:10px 0;
+}
+.modal-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card hero">
+      <h1>📱 Árbitro Pro 1.0</h1>
+      <p class="small" style="color:rgba(255,255,255,0.9);">Lançamento operacional do ranking com revisão antes do envio, leitura direta do banco e interface otimizada para celular.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Modo</div><div class="value">Árbitro</div></div>
+        <div class="kpi"><div class="label">Ambiente</div><div class="value">Produção</div></div>
+        <div class="kpi"><div class="label">Versão</div><div class="value">1.0</div></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="chip">🏖️ Ranking Beach Tennis</div>
+      <div class="chip">☁️ Firebase</div>
+      <div class="chip">📲 Mobile-first</div>
+    </div>
+
+    <div class="card">
+      <div id="rankingInfo" class="small">Carregando configuração do ranking...</div>
+    </div>
+
+    <div class="card">
+      <h2>Jogadores</h2>
+      <div class="dupla">
+        <strong>Dupla AB</strong>
+        <label>Jogador A</label>
+        <select id="playerA"></select>
+        <label>Jogador B</label>
+        <select id="playerB"></select>
+      </div>
+
+      <div class="dupla">
+        <strong>Dupla CD</strong>
+        <label>Jogador C</label>
+        <select id="playerC"></select>
+        <label>Jogador D</label>
+        <select id="playerD"></select>
+      </div>
+
+      <label>Responsável pelo lançamento</label>
+      <input type="text" id="submittedBy" placeholder="Ex: Marcos / Quadra 2" />
+
+      <div class="dupla">
+        <strong>Placar final</strong>
+        <div class="score-box">
+          <div>
+            <label>Games da dupla AB</label>
+            <input type="number" id="gamesAB" min="0" max="30" value="0" />
+          </div>
+          <div>
+            <label>Games da dupla CD</label>
+            <input type="number" id="gamesCD" min="0" max="30" value="0" />
+          </div>
+        </div>
+        <p class="small" style="margin-top:8px;">
+          Válidos: 6x0 até 6x4, 7x5, 7x6, ou super tie-break (10+ com diferença mínima de 2).
+        </p>
+      </div>
+
+      <button onclick="openConfirmModal()">Revisar resultado</button>
+      <button class="secondary" onclick="reloadPlayers()">Atualizar jogadores</button>
+      <p id="msg" class="small"></p>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_DATABASE_URL = "https://ranking-beach-tennis-twelv-default-rtdb.firebaseio.com";
+    const params = new URLSearchParams(window.location.search);
+    let databaseURL = (params.get("db") || "").trim().replace(/\/+$/,"");
+    if (!databaseURL) {
+      try {
+        const raw = localStorage.getItem("bt_qr_sync_config_v1") || localStorage.getItem("bt_qr_sync_config_v1_fallback") || "";
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          databaseURL = String(parsed?.databaseURL || "").trim().replace(/\/+$/,"");
+        }
+      } catch (e) {}
+    }
+    if (!databaseURL) databaseURL = DEFAULT_DATABASE_URL;
+    let remoteConfig = null;
+    let players = [];
+
+    function setMsg(text, type) {
+      const el = document.getElementById("msg");
+      el.textContent = text || "";
+      el.className = "small " + (type || "");
+    }
+
+    function dbUrl(path) {
+      const clean = String(path || "").replace(/^\/+|\/+$/g, "");
+      return databaseURL + "/" + clean + ".json";
+    }
+
+    async function apiGet(path) {
+      const res = await fetch(dbUrl(path), { method: "GET" });
+      if (!res.ok) throw new Error("Falha ao consultar o banco.");
+      return await res.json();
+    }
+
+    async function apiPut(path, data) {
+      const res = await fetch(dbUrl(path), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Falha ao gravar resultado.");
+      return await res.json();
+    }
+
+    function fillSelect(selectId, selectedValue) {
+      const sel = document.getElementById(selectId);
+      sel.innerHTML = "";
+      const baseOpt = document.createElement("option");
+      baseOpt.value = "";
+      baseOpt.textContent = "-- selecione --";
+      sel.appendChild(baseOpt);
+      players.forEach(p => {
+        const o = document.createElement("option");
+        o.value = p.id;
+        o.textContent = p.name;
+        if (String(selectedValue) === String(p.id)) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    function renderPlayers() {
+      ["playerA","playerB","playerC","playerD"].forEach(id => fillSelect(id));
+    }
+
+    function validateScore(gAB, gCD) {
+      if (![gAB, gCD].every(v => Number.isFinite(v) && v >= 0)) return "Placar inválido.";
+      if (gAB === gCD) return "Placar não pode terminar empatado.";
+      const maxG = Math.max(gAB, gCD), minG = Math.min(gAB, gCD), diff = maxG - minG;
+      const isSuper = maxG >= 10 && diff >= 2;
+      const isNormal = (maxG === 6 && diff >= 2 && minG <= 4) || (maxG === 7 && (minG === 5 || minG === 6));
+      if (!isSuper && !isNormal) return "Use 6x0 a 6x4, 7x5, 7x6, ou super tie-break (10+ e diferença 2).";
+      return "";
+    }
+
+    async function loadConfig() {
+      const rankingInfo = document.getElementById("rankingInfo");
+      if (!databaseURL) {
+        throw new Error("Sem databaseURL");
+      }
+      remoteConfig = await apiGet("bt_qr/config");
+      players = Array.isArray(remoteConfig?.players) ? remoteConfig.players.slice().sort((a,b) => a.name.localeCompare(b.name)) : [];
+      rankingInfo.textContent = remoteConfig
+        ? ((remoteConfig.rankingName || "Ranking") + " · Temporada " + (remoteConfig.seasonLabel || "-"))
+        : "Ranking sem configuração remota.";
+      renderPlayers();
+      if (!players.length) {
+        setMsg("Ainda não há jogadores sincronizados. No computador do ranking, clique em 'Sincronizar jogadores'.", "error");
+      }
+    }
+
+    async function reloadPlayers() {
+      try {
+        await loadConfig();
+        setMsg("Lista de jogadores atualizada.", "success");
+      } catch (e) {
+        setMsg("Não consegui atualizar os jogadores.", "error");
+      }
+    }
+
+    async function submitMatch() {
+      try {
+        if (!databaseURL) {
+          setMsg("Falta a URL do banco na leitura do QR.", "error");
+          return;
+        }
+        const aId = parseInt(document.getElementById("playerA").value);
+        const bId = parseInt(document.getElementById("playerB").value);
+        const cId = parseInt(document.getElementById("playerC").value);
+        const dId = parseInt(document.getElementById("playerD").value);
+        const gamesAB = parseInt(document.getElementById("gamesAB").value);
+        const gamesCD = parseInt(document.getElementById("gamesCD").value);
+
+        if ([aId,bId,cId,dId].some(v => Number.isNaN(v))) {
+          setMsg("Selecione os 4 jogadores.", "error");
+          return;
+        }
+        if (new Set([aId,bId,cId,dId]).size !== 4) {
+          setMsg("Os 4 jogadores precisam ser diferentes.", "error");
+          return;
+        }
+        const scoreError = validateScore(gamesAB, gamesCD);
+        if (scoreError) {
+          setMsg(scoreError, "error");
+          return;
+        }
+
+        const submissionId = "sub_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+        const payload = {
+          id: submissionId,
+          aId, bId, cId, dId,
+          gamesAB, gamesCD,
+          submittedAt: new Date().toISOString(),
+          status: "pending"
+        };
+
+        await apiPut("bt_qr/submissions/" + submissionId, payload);
+        closeConfirmModal();
+        setMsg("Resultado enviado com sucesso. O computador do ranking deve importar em alguns segundos.", "success");
+
+        document.getElementById("gamesAB").value = "0";
+        document.getElementById("gamesCD").value = "0";
+      } catch (e) {
+        console.error(e);
+        setMsg("Não consegui enviar o resultado. Verifique a conexão e a configuração do QR.", "error");
+      }
+    }
+
+
+function getPlayerNameById(id) {
+  const p = players.find(x => String(x.id) === String(id));
+  return p ? p.name : "";
+}
+
+function buildSummaryHtml() {
+  const aId = parseInt(document.getElementById("playerA").value);
+  const bId = parseInt(document.getElementById("playerB").value);
+  const cId = parseInt(document.getElementById("playerC").value);
+  const dId = parseInt(document.getElementById("playerD").value);
+  const gamesAB = parseInt(document.getElementById("gamesAB").value);
+  const gamesCD = parseInt(document.getElementById("gamesCD").value);
+
+  return `
+    <strong>Dupla AB</strong><br>
+    ${getPlayerNameById(aId)} & ${getPlayerNameById(bId)}
+    <div class="summary-score">${gamesAB} x ${gamesCD}</div>
+    <strong>Dupla CD</strong><br>
+    ${getPlayerNameById(cId)} & ${getPlayerNameById(dId)}
+  `;
+}
+
+function openConfirmModal() {
+  const aId = parseInt(document.getElementById("playerA").value);
+  const bId = parseInt(document.getElementById("playerB").value);
+  const cId = parseInt(document.getElementById("playerC").value);
+  const dId = parseInt(document.getElementById("playerD").value);
+  const gamesAB = parseInt(document.getElementById("gamesAB").value);
+  const gamesCD = parseInt(document.getElementById("gamesCD").value);
+
+  if ([aId,bId,cId,dId].some(v => Number.isNaN(v))) {
+    setMsg("Selecione os 4 jogadores.", "error");
+    return;
+  }
+  if (new Set([aId,bId,cId,dId]).size !== 4) {
+    setMsg("Os 4 jogadores precisam ser diferentes.", "error");
+    return;
+  }
+  const scoreError = validateScore(gamesAB, gamesCD);
+  if (scoreError) {
+    setMsg(scoreError, "error");
+    return;
+  }
+
+  document.getElementById("confirmSummary").innerHTML = buildSummaryHtml();
+  document.getElementById("confirmModal").classList.add("open");
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirmModal").classList.remove("open");
+}
+
+    loadConfig().catch(err => {
+      console.error(err);
+    });
+  </script>
+
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal-card">
+    <div class="modal-title">Confirmar lançamento</div>
+    <div class="small">Revise os jogadores e o placar antes de enviar.</div>
+    <div class="summary-box" id="confirmSummary"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeConfirmModal()">Corrigir</button>
+      <button onclick="submitMatch()">Lançar resultado</button>
+    </div>
+  </div>
+</div>
+
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;opacity:0.5;z-index:9999;">MOBILE v2</div>
+  <div class="footer-note">Árbitro Pro 1.0 · Ranking Beach Tennis · Build inicial profissional</div>
+</body>
+</html>
