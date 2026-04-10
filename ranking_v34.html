@@ -564,10 +564,16 @@
         <div class="small footer-note">Visão ampliada da fila para TV, tablet e celular.</div>
       </div>
     </div>
+
   </div>
 
 </div><!-- /layout -->
 
+<!-- Hidden tables for index JS (renderRanking/renderMatches write here but are not shown in admin) -->
+<div style="display:none;" aria-hidden="true">
+  <table id="adm-rankingTable"><tbody></tbody></table>
+  <table id="adm-matchesTable"><tbody></tbody></table>
+</div>
 
 <!-- ADMIN PANEL -->
 <div class="admin-panel" id="adminPanel">
@@ -581,6 +587,7 @@
       <button class="admin-btn" onclick="openAdminBackup()" style="margin-top:0;">💾 Backup</button>
       <button class="admin-btn" onclick="openAdminConfig()" style="margin-top:0;">⚙️ Config</button>
       <button class="admin-btn" onclick="openAdminRules()" style="margin-top:0;">📜 Regras</button>
+      <button class="admin-btn primary" onclick="exportRankingStory()" style="margin-top:0;">📸 Story</button>
       <button class="admin-btn danger" onclick="adminResetRanking()" style="margin-top:0;">🔄 Resetar</button>
       <button class="admin-btn danger" onclick="adminClearAll()" style="margin-top:0;">💀 Limpar</button>
       <button class="admin-btn" onclick="closeAdminPanel()" style="margin-top:0;background:rgba(255,255,255,0.06);">✕ Fechar</button>
@@ -659,23 +666,18 @@
   </div>
 
   <div class="admin-section">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-      <div class="admin-section-title" style="margin-bottom:0;" id="adm-rankingTitle">🏆 Ranking local</div>
-      <div style="display:flex;gap:8px;">
-        <button class="admin-btn" onclick="renderRanking()" style="margin-top:0;">↻ Atualizar</button>
-        <button class="admin-btn primary" onclick="exportRankingStory()" style="margin-top:0;">📸 Story</button>
-      </div>
-    </div>
-    <div class="admin-table-wrap">
-      <table id="adm-rankingTable"><thead><tr><th>Pos</th><th>Nome</th><th>Pts</th><th>Jgs</th><th>Vit</th><th>Der</th><th>Saldo</th><th>Var</th><th>Últimos</th></tr></thead><tbody></tbody></table>
-    </div>
-    <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Pts iniciais: 1000 · K: 32 · Super=0,90 · 6-0/6-1=1,10 · 6-2/6-3=1,05 · demais=1,00</p>
-  </div>
-
-  <div class="admin-section">
     <div class="admin-section-title">📂 Histórico de jogos</div>
-    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;">Exclua um jogo para corrigir resultados — o ranking recalcula automaticamente.</p>
-    <div class="admin-table-wrap"><table id="adm-matchesTable"><thead><tr><th>ID</th><th>Data</th><th>Dupla AB</th><th>Dupla CD</th><th>Placar</th><th>Vencedor</th><th>Cat.</th><th>ΔAB</th><th>ΔCD</th><th>Ações</th></tr></thead><tbody></tbody></table></div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">Edite ou exclua um jogo para corrigir resultados — o ranking é recalculado automaticamente.</p>
+    <div class="admin-table-wrap">
+      <table id="adm-matchesTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Data</th><th>Dupla AB</th><th>Placar</th><th>Dupla CD</th><th>Cat.</th><th>ΔAB</th><th>ΔCD</th><th style="text-align:center;">Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="admin-section">
@@ -685,6 +687,44 @@
       <div style="min-width:180px;"><div class="adm-label" style="margin-top:0;">Jogador 2</div><select id="adm-h2hPlayer2" onchange="renderH2H()" class="admin-select"><option value="">— selecione —</option></select></div>
     </div>
     <div id="adm-h2hResult" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+
+<!-- Edit match modal -->
+<div id="adminEditMatchOverlay" class="adm-overlay">
+  <div class="adm-modal" style="width:min(560px,100%);">
+    <div class="adm-modal-title">✏️ Editar jogo</div>
+    <div id="adminEditMatchInfo" style="font-size:0.88rem;color:var(--muted);margin-bottom:14px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div class="adm-label" style="margin-top:0;">Dupla AB – Jogador A</div>
+        <select id="editPlayerA" class="admin-select"></select>
+        <div class="adm-label">Dupla AB – Jogador B</div>
+        <select id="editPlayerB" class="admin-select"></select>
+      </div>
+      <div>
+        <div class="adm-label" style="margin-top:0;">Dupla CD – Jogador C</div>
+        <select id="editPlayerC" class="admin-select"></select>
+        <div class="adm-label">Dupla CD – Jogador D</div>
+        <select id="editPlayerD" class="admin-select"></select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div>
+        <div class="adm-label">Games Dupla AB</div>
+        <input type="number" id="editGamesAB" class="admin-input" min="0" max="30" />
+      </div>
+      <div>
+        <div class="adm-label">Games Dupla CD</div>
+        <input type="number" id="editGamesCD" class="admin-input" min="0" max="30" />
+      </div>
+    </div>
+    <p id="editMatchMsg" class="admin-msg"></p>
+    <div class="adm-modal-footer">
+      <button class="admin-btn" onclick="closeEditMatch()" style="margin-top:0;">Cancelar</button>
+      <button class="admin-btn primary" onclick="saveEditMatch()" style="margin-top:0;">💾 Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -871,13 +911,12 @@ function showAdminPanel() {
   var panel = document.getElementById('adminPanel');
   panel.classList.add('open');
   panel.scrollIntoView({behavior:'smooth', block:'start'});
-  renderRanking();
-  renderMatches();
   renderQueue();
   refreshPlayerSelects();
   renderGeneratorPlayers();
   applyAdminConfigUI();
   updateAdminLiveCard();
+  if (typeof renderAdminMatches === 'function') renderAdminMatches();
   if (typeof populateH2HSelects === 'function') populateH2HSelects();
   resetAdminLockTimer();
 }
@@ -5929,6 +5968,158 @@ function buildStateFromConfigAndSubmissions(configRaw, submissionsRaw, cloudStat
 })();
 </script>
 <!-- ── STORY EXPORT ── -->
+
+<!-- ── MATCH HISTORY ADMIN ── -->
+<script>
+(function(){
+  var _editingMatchId = null;
+
+  function renderAdminMatches() {
+    var tbody = document.querySelector('#adm-matchesTable tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    var matches = (state.matches || []).slice().sort(function(a,b){ return b.id - a.id; });
+    if (!matches.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px;">Nenhum jogo registrado ainda.</td></tr>';
+      return;
+    }
+    function pName(id) {
+      var p = (state.players||[]).find(function(x){ return x.id===id; });
+      return p ? p.name : '?';
+    }
+    matches.forEach(function(m) {
+      var date  = m.date ? new Date(m.date).toLocaleDateString('pt-BR') : '—';
+      var ab    = pName(m.player_a_id) + ' & ' + pName(m.player_b_id);
+      var cd    = pName(m.player_c_id) + ' & ' + pName(m.player_d_id);
+      var score = m.games_ab + ' × ' + m.games_cd;
+      var cat   = m.score_category || '—';
+      var dAB   = Number.isFinite(m.delta_ab) ? (m.delta_ab>=0?'+':'')+m.delta_ab.toFixed(1) : '—';
+      var dCD   = Number.isFinite(m.delta_cd) ? (m.delta_cd>=0?'+':'')+m.delta_cd.toFixed(1) : '—';
+      var dABColor = m.delta_ab >= 0 ? 'var(--ok)' : 'var(--bad)';
+      var dCDColor = m.delta_cd >= 0 ? 'var(--ok)' : 'var(--bad)';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="color:var(--muted);font-size:0.78rem;">' + m.id + '</td>' +
+        '<td style="color:var(--muted);font-size:0.78rem;white-space:nowrap;">' + date + '</td>' +
+        '<td style="font-size:0.82rem;">' + ab + '</td>' +
+        '<td style="text-align:center;font-weight:700;font-size:0.88rem;">' + score + '</td>' +
+        '<td style="font-size:0.82rem;">' + cd + '</td>' +
+        '<td style="text-align:center;font-size:0.78rem;color:var(--muted);">' + cat + '</td>' +
+        '<td style="text-align:right;font-size:0.82rem;color:' + dABColor + ';">' + dAB + '</td>' +
+        '<td style="text-align:right;font-size:0.82rem;color:' + dCDColor + ';">' + dCD + '</td>' +
+        '<td style="text-align:center;">' +
+          '<div style="display:flex;gap:6px;justify-content:center;">' +
+            '<button class="admin-btn" onclick="openEditMatch(' + m.id + ')" style="margin:0;padding:5px 10px;font-size:0.75rem;">✏️</button>' +
+            '<button class="admin-btn danger" onclick="deleteMatchAdmin(' + m.id + ')" style="margin:0;padding:5px 10px;font-size:0.75rem;">🗑️</button>' +
+          '</div>' +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.deleteMatchAdmin = function(id) {
+    if (!confirm('Excluir este jogo? O ranking será recalculado.')) return;
+    state.matches = state.matches.filter(function(m){ return m.id !== id; });
+    recomputeAll();
+  };
+
+  window.openEditMatch = function(id) {
+    var m = (state.matches||[]).find(function(x){ return x.id === id; });
+    if (!m) return;
+    _editingMatchId = id;
+    var info = document.getElementById('adminEditMatchInfo');
+    if (info) info.textContent = 'Jogo #' + id + ' · ' + (m.date ? new Date(m.date).toLocaleString('pt-BR') : '');
+    var selIds  = ['editPlayerA','editPlayerB','editPlayerC','editPlayerD'];
+    var currIds = [m.player_a_id, m.player_b_id, m.player_c_id, m.player_d_id];
+    var players = (state.players||[]).slice().sort(function(a,b){ return b.rating-a.rating; });
+    selIds.forEach(function(selId, i) {
+      var sel = document.getElementById(selId);
+      if (!sel) return;
+      sel.innerHTML = '';
+      players.forEach(function(p) {
+        var o = document.createElement('option');
+        o.value = p.id; o.textContent = p.name;
+        if (p.id === currIds[i]) o.selected = true;
+        sel.appendChild(o);
+      });
+    });
+    var gAB = document.getElementById('editGamesAB');
+    var gCD = document.getElementById('editGamesCD');
+    if (gAB) gAB.value = m.games_ab;
+    if (gCD) gCD.value = m.games_cd;
+    var msg = document.getElementById('editMatchMsg');
+    if (msg) { msg.textContent = ''; msg.className = 'admin-msg'; }
+    document.getElementById('adminEditMatchOverlay').classList.add('open');
+  };
+
+  window.closeEditMatch = function() {
+    document.getElementById('adminEditMatchOverlay').classList.remove('open');
+    _editingMatchId = null;
+  };
+
+  window.saveEditMatch = function() {
+    var msg = document.getElementById('editMatchMsg');
+    if (!msg) return;
+    msg.className = 'admin-msg';
+    if (_editingMatchId === null) { msg.textContent = 'Nenhum jogo selecionado.'; msg.className='admin-msg err'; return; }
+    var aId = parseInt(document.getElementById('editPlayerA').value);
+    var bId = parseInt(document.getElementById('editPlayerB').value);
+    var cId = parseInt(document.getElementById('editPlayerC').value);
+    var dId = parseInt(document.getElementById('editPlayerD').value);
+    var gAB = parseInt(document.getElementById('editGamesAB').value);
+    var gCD = parseInt(document.getElementById('editGamesCD').value);
+    if ([aId,bId,cId,dId].some(function(v){ return isNaN(v); })) {
+      msg.textContent = 'Selecione os 4 jogadores.'; msg.className='admin-msg err'; return;
+    }
+    if (new Set([aId,bId,cId,dId]).size !== 4) {
+      msg.textContent = 'Os 4 jogadores devem ser diferentes.'; msg.className='admin-msg err'; return;
+    }
+    if (isNaN(gAB)||isNaN(gCD)||gAB<0||gCD<0||gAB===gCD) {
+      msg.textContent = 'Placar inválido (não pode ser empate).'; msg.className='admin-msg err'; return;
+    }
+    var maxG=Math.max(gAB,gCD),minG=Math.min(gAB,gCD),diff=maxG-minG;
+    var valid = (maxG>=10&&diff>=2)||(maxG===6&&diff>=2&&minG<=4)||(maxG===7&&(minG===5||minG===6));
+    if (!valid) {
+      msg.textContent = 'Placar inválido. Use 6×0 a 6×4, 7×5, 7×6 ou super tie-break (10+, dif.2).';
+      msg.className='admin-msg err'; return;
+    }
+    var m = (state.matches||[]).find(function(x){ return x.id===_editingMatchId; });
+    if (!m) { msg.textContent = 'Jogo não encontrado.'; msg.className='admin-msg err'; return; }
+    m.player_a_id=aId; m.player_b_id=bId;
+    m.player_c_id=cId; m.player_d_id=dId;
+    m.games_ab=gAB;    m.games_cd=gCD;
+    recomputeAll();
+    msg.textContent = 'Jogo #' + _editingMatchId + ' atualizado com sucesso.';
+    msg.className = 'admin-msg ok';
+    setTimeout(function(){ closeEditMatch(); }, 900);
+  };
+
+  document.getElementById('adminEditMatchOverlay').addEventListener('click', function(e){
+    if (e.target === this) closeEditMatch();
+  });
+
+  // Hook recomputeAll to refresh match list
+  var _origRecomp = window.recomputeAll;
+  window.recomputeAll = function(){
+    if (typeof _origRecomp==='function') _origRecomp();
+    renderAdminMatches();
+  };
+
+  // Hook finishMatch to refresh after registering
+  var _origFM = window.finishMatch;
+  window.finishMatch = function(){
+    if (typeof _origFM==='function') _origFM();
+    renderAdminMatches();
+  };
+
+  window.renderAdminMatches = renderAdminMatches;
+
+  // Render on DOMContentLoaded if admin is already open
+  document.addEventListener('DOMContentLoaded', function(){
+    renderAdminMatches();
+  });
+})();
+</script>
 
 <div style="position:fixed;bottom:8px;right:12px;font-size:11px;opacity:0.4;z-index:9999;color:#8b949e;">v34</div>
 </body>
