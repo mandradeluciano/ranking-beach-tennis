@@ -81,6 +81,13 @@ tr.tlast td{background:rgba(231,76,60,.08)}
 .pin-inp:focus{border-color:var(--accent)}
 .pin-inp.shake{animation:shake .4s;border-color:var(--red)!important}
 @keyframes shake{0%,100%{transform:translateX(0)}25%,75%{transform:translateX(-8px)}50%{transform:translateX(8px)}}
+/* Live scoreboard */
+.live-scoreboard{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:6px}
+.live-team{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.03);transition:background .2s,border-color .2s}
+.live-team-winning{background:rgba(212,168,67,.08);border-color:rgba(212,168,67,.35)}
+.live-team-name{font-size:clamp(.75rem,1.8vw,.95rem);font-weight:700;text-align:center;line-height:1.3;color:var(--text)}
+.live-team-score{font-size:clamp(2.2rem,7vw,3.8rem);font-weight:800;color:var(--accent);line-height:1}
+.live-vs{font-size:1.4rem;font-weight:800;color:var(--muted);text-align:center}
 /* Misc */
 .msg{font-size:.81rem;margin-top:8px}
 .msg.ok{color:var(--green)}.msg.err{color:var(--red)}
@@ -149,7 +156,10 @@ tr.tlast td{background:rgba(231,76,60,.08)}
 
   <!-- ÚLTIMOS JOGOS -->
   <div class="card" style="margin-top:10px;grid-column:1/-1">
-    <h2>🕒 Últimos jogos</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">🕒 Últimos jogos</h2>
+      <button class="btn btn-ghost btn-sm" onclick="openAllMatches()">📋 Ver todos</button>
+    </div>
     <div class="tw">
       <table id="tRecent">
         <thead><tr><th>Data</th><th>Dupla AB</th><th style="text-align:center">Placar</th><th>Dupla CD</th><th>Categoria</th><th style="text-align:center">Ações</th></tr></thead>
@@ -294,6 +304,28 @@ tr.tlast td{background:rgba(231,76,60,.08)}
       <button class="btn btn-acc" onclick="confirmAdminAction()">Confirmar</button>
       <button class="btn btn-ghost" onclick="closeModal('mAdminAction')">Cancelar</button>
     </div>
+  </div>
+</div>
+
+
+<!-- TODOS OS JOGOS -->
+<div class="overlay" id="mAllMatches">
+  <div class="modal" style="width:min(860px,100%);max-height:92vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="modal-title" style="margin:0">📋 Todos os jogos</div>
+      <div class="grp">
+        <input type="text" id="matchSearch" placeholder="🔍 Buscar jogador..." style="width:180px;padding:7px 10px;font-size:.82rem" oninput="renderAllMatches()"/>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('mAllMatches')">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="tw" style="max-height:65vh;overflow-y:auto">
+      <table id="tAllMatches">
+        <thead><tr><th>Data</th><th>Dupla AB</th><th style="text-align:center">Placar</th><th>Dupla CD</th><th>Cat.</th><th style="text-align:center">Ações</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="allMatchesEmpty" style="display:none;margin-top:10px">Nenhum jogo registrado.</div>
+    <div style="font-size:.76rem;color:var(--muted);margin-top:10px" id="allMatchesCount"></div>
   </div>
 </div>
 
@@ -609,14 +641,36 @@ function renderLive(){
   const live=DB.live;
   if(!live){area.innerHTML='<div class="no-live">Nenhum jogo em andamento</div>';stopLT();renderLiveCtrl();return;}
   const ab=pn(live.aId,live.bId), cd=pn(live.cId,live.dId);
-  const score=live.tieMode?`${live.tieAB||0} × ${live.tieCD||0}`:`${live.gAB||0} × ${live.gCD||0}`;
+  const gAB=live.tieMode?(live.tieAB||0):(live.gAB||0);
+  const gCD=live.tieMode?(live.tieCD||0):(live.gCD||0);
+  const isWinning=(g1,g2)=>g1>g2;
   const proj=calcProj(live);
-  area.innerHTML=`<div class="live-badge">● Ao vivo</div>
-    <div class="live-teams">${x(ab)} <span style="color:var(--muted);font-weight:400">vs</span> ${x(cd)}</div>
-    <div class="live-score">${score}</div>
-    ${live.tieMode?'<div style="font-size:.78rem;color:var(--muted);margin-bottom:4px">Tie-break</div>':''}
-    <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px" id="liveTmr"></div>
-    <div style="font-size:.8rem;color:var(--muted)">${proj}</div>`;
+
+  // Score buttons HTML — different for normal vs tie-break
+  const adjFn  = live.tieMode ? 'adjTie' : 'adjScore';
+  const btnAB  = `<button class="btn btn-acc" style="min-width:56px;font-size:1.1rem;padding:10px 18px" onclick="${adjFn}('AB',1)">+1</button>`;
+  const btnCD  = `<button class="btn btn-acc" style="min-width:56px;font-size:1.1rem;padding:10px 18px" onclick="${adjFn}('CD',1)">+1</button>`;
+
+  area.innerHTML=`
+    <div class="live-badge">● Ao vivo</div>
+    ${live.tieMode?'<div style="font-size:.74rem;color:var(--accent);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">🔥 Tie-break</div>':''}
+    <div class="live-scoreboard">
+      <div class="live-team ${isWinning(gAB,gCD)?'live-team-winning':''}">
+        <div class="live-team-name">${x(ab)}</div>
+        <div class="live-team-score">${gAB}</div>
+        ${btnAB}
+      </div>
+      <div class="live-vs">×</div>
+      <div class="live-team ${isWinning(gCD,gAB)?'live-team-winning':''}">
+        <div class="live-team-name">${x(cd)}</div>
+        <div class="live-team-score">${gCD}</div>
+        ${btnCD}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+      <div style="font-size:.76rem;color:var(--muted)" id="liveTmr"></div>
+      <div style="font-size:.78rem;color:var(--muted)">${proj}</div>
+    </div>`;
   startLT(live.startedAt);
   renderLiveCtrl();
 }
@@ -693,12 +747,34 @@ function renderHist(){
 // ── PLAYER SELECTS ──
 function fillSels(){
   const rk=compute();
-  ['pA','pB','pC','pD','lA','lB','lC','lD','h1','h2','eA','eB','eC','eD'].forEach(id=>{
+  ['h1','h2','eA','eB','eC','eD'].forEach(id=>{
     const s=document.getElementById(id); if(!s) return;
     const cur=s.value;
     s.innerHTML='<option value="">— selecione —</option>';
     rk.forEach(p=>{ const o=document.createElement('option');o.value=p.id;o.textContent=p.name;if(p.id===cur)o.selected=true;s.appendChild(o); });
   });
+  function refreshGroup(ids){
+    const sel={};
+    ids.forEach(id=>{sel[id]=document.getElementById(id)?.value||'';});
+    ids.forEach(id=>{
+      const s=document.getElementById(id); if(!s) return;
+      const cur=sel[id];
+      const taken=new Set(ids.filter(oid=>oid!==id&&sel[oid]).map(oid=>sel[oid]));
+      s.innerHTML='<option value="">— selecione —</option>';
+      rk.forEach(p=>{
+        if(taken.has(p.id)&&p.id!==cur) return;
+        const o=document.createElement('option');o.value=p.id;o.textContent=p.name;
+        if(p.id===cur) o.selected=true;
+        s.appendChild(o);
+      });
+    });
+  }
+  const manGrp=['pA','pB','pC','pD'];
+  refreshGroup(manGrp);
+  manGrp.forEach(id=>{const s=document.getElementById(id);if(s) s.onchange=()=>refreshGroup(manGrp);});
+  const lnGrp=['lA','lB','lC','lD'];
+  refreshGroup(lnGrp);
+  lnGrp.forEach(id=>{const s=document.getElementById(id);if(s) s.onchange=()=>refreshGroup(lnGrp);});
 }
 
 function renderPList(){
@@ -926,6 +1002,8 @@ async function saveEdit(){
     const upd={...DB.matches[_editId],aId,bId,cId,dId,gAB,gCD};
     await fS('matches/'+_editId,upd); DB.matches[_editId]=upd;
     closeM('mEdit'); renderAll(); showTab(2);
+    if(document.getElementById('mAllMatches')?.classList.contains('open')) renderAllMatches();
+    if(document.getElementById('mAllMatches')?.classList.contains('open')) renderAllMatches();
   }catch(e){setMsg('msgEdit','❌ '+e.message,'err');}
 }
 async function delMatch(id){
@@ -1184,11 +1262,31 @@ function openAddQueue(){
 
 function fillQueueSelects(){
   const rk=compute();
-  ['qaA','qaB','qaC','qaD'].forEach(id=>{
+  const selIds=['qaA','qaB','qaC','qaD'];
+  function refresh(){
+    // Get all currently selected values except the one being refreshed
+    const selected={};
+    selIds.forEach(id=>{ selected[id]=document.getElementById(id)?.value||''; });
+    selIds.forEach(id=>{
+      const s=document.getElementById(id); if(!s) return;
+      const cur=selected[id];
+      // Collect values selected in OTHER selects
+      const taken=new Set(selIds.filter(oid=>oid!==id&&selected[oid]).map(oid=>selected[oid]));
+      s.innerHTML='<option value="">— selecione —</option>';
+      rk.forEach(p=>{
+        if(taken.has(p.id)&&p.id!==cur) return; // hide players taken elsewhere
+        const o=document.createElement('option');
+        o.value=p.id; o.textContent=p.name;
+        if(p.id===cur) o.selected=true;
+        s.appendChild(o);
+      });
+    });
+  }
+  refresh();
+  // Re-filter on every change
+  selIds.forEach(id=>{
     const s=document.getElementById(id); if(!s) return;
-    const cur=s.value;
-    s.innerHTML='<option value="">— selecione —</option>';
-    rk.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;if(p.id===cur)o.selected=true;s.appendChild(o);});
+    s.onchange=refresh;
   });
 }
 
@@ -1265,12 +1363,70 @@ async function confirmAdminAction(){
   const {type, matchId}=_pendingAction;
   _pendingAction=null;
   if(type==='delete'){
-    try{await fD('matches/'+matchId);delete DB.matches[matchId];renderAll();}
+    try{
+      await fD('matches/'+matchId);delete DB.matches[matchId];renderAll();
+      // Refresh all-matches modal if open
+      if(document.getElementById('mAllMatches').classList.contains('open')) renderAllMatches();
+    }
     catch(e){alert('Erro: '+e.message);}
   } else if(type==='edit'){
+    // Close all-matches modal if open before opening edit
+    if(document.getElementById('mAllMatches').classList.contains('open')) closeM('mAllMatches');
     openEdit(matchId);
   }
 }
+
+// ── ALL MATCHES MODAL ──
+function openAllMatches(){
+  document.getElementById('matchSearch').value='';
+  renderAllMatches();
+  openM('mAllMatches');
+}
+
+function renderAllMatches(){
+  const tb=document.querySelector('#tAllMatches tbody');
+  const em=document.getElementById('allMatchesEmpty');
+  const cnt=document.getElementById('allMatchesCount');
+  if(!tb) return;
+  const q=(document.getElementById('matchSearch')?.value||'').trim().toLowerCase();
+  let ms=Object.values(DB.matches).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(q){
+    ms=ms.filter(m=>{
+      const names=[m.aId,m.bId,m.cId,m.dId].map(id=>DB.players[id]?.name||'').join(' ').toLowerCase();
+      return names.includes(q);
+    });
+  }
+  tb.innerHTML='';
+  if(!ms.length){
+    if(em) em.style.display='block';
+    if(cnt) cnt.textContent='';
+    return;
+  }
+  if(em) em.style.display='none';
+  if(cnt) cnt.textContent=`${ms.length} jogo(s)${q?' encontrado(s)':''}`;
+  compute(); // ensures _dAB/_dCD are set
+  ms.forEach(m=>{
+    const date=new Date(m.date).toLocaleDateString('pt-BR');
+    const ab=pn(m.aId,m.bId), cd=pn(m.cId,m.dId);
+    const winner=m.gAB>m.gCD?'AB':'CD';
+    const c2=cat(m.gAB,m.gCD)||'—';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="color:var(--muted);font-size:.77rem;white-space:nowrap">${date}</td>
+      <td style="font-size:.82rem;${winner==='AB'?'font-weight:700;color:var(--accent)':''}">${x(ab)}</td>
+      <td style="text-align:center;font-weight:700">${m.gAB} × ${m.gCD}</td>
+      <td style="font-size:.82rem;${winner==='CD'?'font-weight:700;color:var(--accent)':''}">${x(cd)}</td>
+      <td style="text-align:center;font-size:.75rem;color:var(--muted)">${c2}</td>
+      <td style="text-align:center">
+        <div class="grp" style="justify-content:center;gap:4px">
+          <button class="btn btn-ghost btn-xs btn-icon" onclick="recentAction('edit','${m.id}')" title="Corrigir">✏️</button>
+          <button class="btn btn-danger btn-xs btn-icon" onclick="recentAction('delete','${m.id}')" title="Excluir">🗑️</button>
+        </div>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+
 // ── TIMER ──
 function startLT(ts){ stopLT(); function up(){const el=document.getElementById('liveTmr');if(!el)return;const d=Math.max(0,Math.floor((Date.now()-new Date(ts))/1000));const m=Math.floor(d/60),s=d%60;el.textContent='⏱ '+m+' min '+String(s).padStart(2,'0')+' s';} up(); _liveTimer=setInterval(up,1000); }
 function stopLT(){ if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;} }
