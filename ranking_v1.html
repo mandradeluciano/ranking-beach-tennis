@@ -122,11 +122,17 @@ tr.tlast td{background:rgba(231,76,60,.08)}
   </div>
 
   <div class="card c-queue">
-    <h2>📋 Próximos jogos</h2>
-    <div class="tw" style="margin-top:6px">
-      <table id="tQueue"><thead><tr><th>#</th><th>Dupla AB</th><th>Dupla CD</th></tr></thead><tbody></tbody></table>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">📋 Próximos jogos</h2>
+      <button class="btn btn-acc btn-sm" onclick="openAddQueue()">+ Adicionar</button>
     </div>
-    <div class="empty" id="qEmpty" style="display:none">Fila vazia.</div>
+    <div class="tw">
+      <table id="tQueue">
+        <thead><tr><th>#</th><th>Dupla AB</th><th>Dupla CD</th><th style="text-align:center">Ações</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="qEmpty" style="display:none">Fila vazia. Clique em + Adicionar para agendar confrontos.</div>
   </div>
 
   <div class="card c-rank">
@@ -139,6 +145,18 @@ tr.tlast td{background:rgba(231,76,60,.08)}
     </div>
     <div class="empty" id="rEmpty" style="display:none;margin-top:8px">Nenhum jogador cadastrado.</div>
     <div style="font-size:.73rem;color:var(--muted);margin-top:8px">▲ subiu · ▼ desceu · ● manteve · verde=vitória · vermelho=derrota</div>
+  </div>
+
+  <!-- ÚLTIMOS JOGOS -->
+  <div class="card" style="margin-top:10px;grid-column:1/-1">
+    <h2>🕒 Últimos jogos</h2>
+    <div class="tw">
+      <table id="tRecent">
+        <thead><tr><th>Data</th><th>Dupla AB</th><th style="text-align:center">Placar</th><th>Dupla CD</th><th>Categoria</th><th style="text-align:center">Ações</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="recentEmpty" style="display:none">Nenhum jogo registrado.</div>
   </div>
 </div>
 
@@ -234,6 +252,47 @@ tr.tlast td{background:rgba(231,76,60,.08)}
       <div id="storyDl" style="margin-top:10px;display:none">
         <button class="btn btn-ghost btn-sm" onclick="dlStory()">⬇️ Baixar imagem</button>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ADICIONAR À FILA (público) -->
+<div class="overlay" id="mAddQueue">
+  <div class="modal modal-wide">
+    <div class="modal-title">📋 Adicionar próximo jogo</div>
+    <div class="grid2">
+      <div>
+        <div style="font-weight:700;font-size:.84rem;margin-bottom:10px">Dupla AB</div>
+        <div class="field"><span class="label">Jogador A</span><select id="qaA"></select></div>
+        <div class="field"><span class="label">Jogador B</span><select id="qaB"></select></div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:.84rem;margin-bottom:10px">Dupla CD</div>
+        <div class="field"><span class="label">Jogador C</span><select id="qaC"></select></div>
+        <div class="field"><span class="label">Jogador D</span><select id="qaD"></select></div>
+      </div>
+    </div>
+    <div class="msg" id="msgAddQ"></div>
+    <div class="mfooter">
+      <button class="btn btn-acc" onclick="submitAddQueue()">Adicionar à fila</button>
+      <button class="btn btn-ghost" onclick="closeModal('mAddQueue')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRMAR AÇÃO (pede senha do admin) -->
+<div class="overlay" id="mAdminAction">
+  <div class="modal">
+    <div class="modal-title" id="admActionTitle">🔒 Confirmação</div>
+    <p style="font-size:.84rem;color:var(--muted);margin-bottom:14px" id="admActionDesc"></p>
+    <span class="label">Senha do administrador</span>
+    <input class="pin-inp" id="admActionPin" type="password" maxlength="20" placeholder="••••"
+      oninput="this.classList.remove('shake')" onkeydown="if(event.key==='Enter')confirmAdminAction()"/>
+    <div style="color:var(--red);font-size:.81rem;min-height:18px;margin-top:8px" id="admActionErr"></div>
+    <div class="mfooter">
+      <button class="btn btn-acc" onclick="confirmAdminAction()">Confirmar</button>
+      <button class="btn btn-ghost" onclick="closeModal('mAdminAction')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -397,7 +456,7 @@ const MULT  = {super:.90,'6-0/6-1':1.10,'6-2/6-3':1.05,outros:1.00};
 // ── STATE ──
 let FB = localStorage.getItem('bt_fb_url') || '';
 let DB = { config:{name:'Ranking Beach Tennis',season:''}, players:{}, matches:{}, queue:[], live:null };
-let _unlocked=false, _lockTimer=null, _liveTimer=null, _editId=null;
+let _unlocked=false, _lockTimer=null, _liveTimer=null, _editId=null, _pendingAction=null, _pendingQueueId=null;
 let _genAvail={}, _genSug=[], _storyUrl=null;
 let _poll=null, _lastPos={};
 
@@ -447,8 +506,8 @@ function delta(rW,rL,c){ return K*(1-prob(rW,rL))*(MULT[c]||1); }
 
 // ── COMPUTE RANKING ──
 function compute(){
-  const rat={}, wins={}, losses={}, hist={};
-  Object.keys(DB.players).forEach(id=>{rat[id]=R0;wins[id]=losses[id]=0;hist[id]=[];});
+  const rat={}, wins={}, losses={}, gFor={}, gAg={}, hist={};
+  Object.keys(DB.players).forEach(id=>{rat[id]=R0;wins[id]=losses[id]=gFor[id]=gAg[id]=0;hist[id]=[];});
   const ms=Object.values(DB.matches).sort((a,b)=>new Date(a.date)-new Date(b.date));
   ms.forEach(m=>{
     if(![m.aId,m.bId,m.cId,m.dId].every(id=>DB.players[id])) return;
@@ -458,13 +517,14 @@ function compute(){
     const d=delta(wAB?rAB:rCD, wAB?rCD:rAB, c2);
     const wT=wAB?[m.aId,m.bId]:[m.cId,m.dId];
     const lT=wAB?[m.cId,m.dId]:[m.aId,m.bId];
-    wT.forEach(id=>{rat[id]+=d;wins[id]++;hist[id].push(1);});
-    lT.forEach(id=>{rat[id]-=d;losses[id]++;hist[id].push(0);});
+    const gW=wAB?m.gAB:m.gCD, gL=wAB?m.gCD:m.gAB;
+    wT.forEach(id=>{rat[id]+=d;wins[id]++;gFor[id]+=gW;gAg[id]+=gL;hist[id].push(1);});
+    lT.forEach(id=>{rat[id]-=d;losses[id]++;gFor[id]+=gL;gAg[id]+=gW;hist[id].push(0);});
     m._dAB=wAB?d:-d; m._dCD=wAB?-d:d;
   });
   return Object.keys(DB.players).map(id=>({
     id, name:DB.players[id].name, r:rat[id],
-    w:wins[id], l:losses[id], h:hist[id].slice(-5)
+    w:wins[id], l:losses[id], saldo:gFor[id]-gAg[id], h:hist[id].slice(-5)
   })).sort((a,b)=>b.r-a.r);
 }
 
@@ -476,7 +536,7 @@ function avgR(id1,id2){
 
 // ── RENDER ALL ──
 function renderAll(){
-  updHdr(); renderRank(); renderQueue(); renderLive();
+  updHdr(); renderRank(); renderQueue(); renderLive(); renderRecent();
   if(document.getElementById('admPanel').classList.contains('open')){
     renderQAdm(); renderHist(); fillSels(); renderGenPlayers(); renderLiveCtrl();
   }
@@ -505,7 +565,7 @@ function renderRank(){
     const tr=document.createElement('tr');
     if(i===0) tr.className='tgold';
     if(i===rk.length-1&&rk.length>1) tr.className='tlast';
-    tr.innerHTML=`<td>${pos}</td><td>${x(p.name)}</td><td><strong>${p.r.toFixed(0)}</strong></td><td>${p.w+p.l}</td><td>${p.w}</td><td>${p.l}</td><td>${p.w&&p.l?Math.round((p.h.filter(Boolean).length-p.h.filter(v=>!v).length)*10)/10:0}</td><td>${v}</td><td>${streak||'—'}</td>`;
+    tr.innerHTML=`<td>${pos}</td><td>${x(p.name)}</td><td><strong>${p.r.toFixed(0)}</strong></td><td>${p.w+p.l}</td><td>${p.w}</td><td>${p.l}</td><td>${p.saldo>=0?'+'+p.saldo:p.saldo}</td><td>${v}</td><td>${streak||'—'}</td>`;
     tb.appendChild(tr);
   });
   _lastPos=np;
@@ -520,7 +580,11 @@ function renderQueue(){
   em.style.display='none';
   q.forEach((q2,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${x(pn(q2.aId,q2.bId))}</td><td>${x(pn(q2.cId,q2.dId))}</td>`;
+    tr.innerHTML=`<td>${i+1}</td><td>${x(pn(q2.aId,q2.bId))}</td><td>${x(pn(q2.cId,q2.dId))}</td>
+      <td style="text-align:center"><div class="grp" style="justify-content:center;gap:6px">
+        <button class="btn btn-acc btn-xs" onclick="startFromQueue('${q2.id}')">▶ Iniciar</button>
+        <button class="btn btn-ghost btn-xs" onclick="openScoreForQueue('${q2.id}')">🎾 Placar</button>
+      </div></td>`;
     tb.appendChild(tr);
   });
 }
@@ -826,6 +890,12 @@ async function submitLaunch(){
     const id='m_'+Date.now();
     await fS('matches/'+id,{id,aId,bId,cId,dId,gAB,gCD,date:new Date().toISOString()});
     DB.matches[id]={id,aId,bId,cId,dId,gAB,gCD,date:new Date().toISOString()};
+    // Remove from queue if launched from queue
+    if(_pendingQueueId){
+      DB.queue=(DB.queue||[]).filter(x=>x.id!==_pendingQueueId);
+      try{await fS('queue',DB.queue);}catch(e){}
+      _pendingQueueId=null;
+    }
     closeM('mLaunch'); renderAll();
   }catch(e){setMsg('msgLaunch','❌ '+e.message,'err');}
 }
@@ -1073,6 +1143,134 @@ function dlStory(){
   a.click();
 }
 
+
+function renderRecent(){
+  const tb=document.querySelector('#tRecent tbody');
+  const em=document.getElementById('recentEmpty');
+  if(!tb) return;
+  tb.innerHTML='';
+  const ms=Object.values(DB.matches).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  if(!ms.length){if(em)em.style.display='block';return;}
+  if(em)em.style.display='none';
+  ms.forEach(m=>{
+    const date=new Date(m.date).toLocaleDateString('pt-BR');
+    const ab=pn(m.aId,m.bId), cd=pn(m.cId,m.dId);
+    const winner=m.gAB>m.gCD?'AB':'CD';
+    const c2=cat(m.gAB,m.gCD)||'—';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="color:var(--muted);font-size:.77rem;white-space:nowrap">${date}</td>
+      <td style="font-size:.82rem;${winner==='AB'?'font-weight:700;color:var(--accent)':''}">${x(ab)}</td>
+      <td style="text-align:center;font-weight:700;font-size:.9rem">${m.gAB} × ${m.gCD}</td>
+      <td style="font-size:.82rem;${winner==='CD'?'font-weight:700;color:var(--accent)':''}">${x(cd)}</td>
+      <td style="text-align:center;font-size:.75rem;color:var(--muted)">${c2}</td>
+      <td style="text-align:center">
+        <div class="grp" style="justify-content:center;gap:6px">
+          <button class="btn btn-ghost btn-xs btn-icon" onclick="recentAction('edit','${m.id}')" title="Corrigir">✏️</button>
+          <button class="btn btn-danger btn-xs btn-icon" onclick="recentAction('delete','${m.id}')" title="Excluir">🗑️</button>
+        </div>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ── ADD TO QUEUE (public) ──
+function openAddQueue(){
+  fillQueueSelects();
+  ['qaA','qaB','qaC','qaD'].forEach(id=>document.getElementById(id).value='');
+  setMsg('msgAddQ','');
+  openM('mAddQueue');
+}
+
+function fillQueueSelects(){
+  const rk=compute();
+  ['qaA','qaB','qaC','qaD'].forEach(id=>{
+    const s=document.getElementById(id); if(!s) return;
+    const cur=s.value;
+    s.innerHTML='<option value="">— selecione —</option>';
+    rk.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;if(p.id===cur)o.selected=true;s.appendChild(o);});
+  });
+}
+
+async function submitAddQueue(){
+  const aId=document.getElementById('qaA').value, bId=document.getElementById('qaB').value;
+  const cId=document.getElementById('qaC').value, dId=document.getElementById('qaD').value;
+  if([aId,bId,cId,dId].some(id=>!id)){setMsg('msgAddQ','Selecione os 4 jogadores.','err');return;}
+  if(new Set([aId,bId,cId,dId]).size!==4){setMsg('msgAddQ','Os 4 jogadores devem ser diferentes.','err');return;}
+  if(!FB){setMsg('msgAddQ','Firebase não configurado.','err');return;}
+  try{
+    const q={id:'q_'+Date.now(),aId,bId,cId,dId};
+    DB.queue=[...(DB.queue||[]),q];
+    await fS('queue',DB.queue);
+    closeM('mAddQueue');
+    renderQueue(); renderQAdm();
+  }catch(e){setMsg('msgAddQ','❌ '+e.message,'err');}
+}
+
+// Start match directly from TV queue (no auth needed — just starts it)
+async function startFromQueue(qid){
+  const q=(DB.queue||[]).find(x=>x.id===qid); if(!q) return;
+  if(DB.live){alert('Já há um jogo em andamento. Encerre-o primeiro.');return;}
+  if(!FB){alert('Firebase não configurado.');return;}
+  DB.queue=DB.queue.filter(x=>x.id!==qid);
+  await fS('queue',DB.queue);
+  await doStart(q.aId,q.bId,q.cId,q.dId,'matchMsg');
+}
+
+// Open score modal directly for a queued match (launch result without starting live)
+function openScoreForQueue(qid){
+  const q=(DB.queue||[]).find(x=>x.id===qid); if(!q) return;
+  // Pre-fill the launch modal with these players
+  fillSels();
+  document.getElementById('lA').value=q.aId;
+  document.getElementById('lB').value=q.bId;
+  document.getElementById('lC').value=q.cId;
+  document.getElementById('lD').value=q.dId;
+  document.getElementById('lGab').value='6';
+  document.getElementById('lGcd').value='4';
+  setMsg('msgLaunch','');
+  // Store queue id to remove after submitting
+  _pendingQueueId=q.id;
+  openM('mLaunch');
+}
+
+// ── RECENT MATCHES ACTIONS (require admin password) ──
+function recentAction(type, matchId){
+  _pendingAction={type, matchId};
+  const desc = type==='edit'
+    ? 'Corrigir o resultado deste jogo requer confirmação do administrador.'
+    : 'Excluir este jogo requer confirmação do administrador. O ranking será recalculado.';
+  const title = type==='edit' ? '✏️ Corrigir jogo' : '🗑️ Excluir jogo';
+  document.getElementById('admActionTitle').textContent=title;
+  document.getElementById('admActionDesc').textContent=desc;
+  document.getElementById('admActionPin').value='';
+  document.getElementById('admActionPin').classList.remove('shake');
+  document.getElementById('admActionErr').textContent='';
+  openM('mAdminAction');
+  setTimeout(()=>document.getElementById('admActionPin').focus(),80);
+}
+
+async function confirmAdminAction(){
+  const pin=document.getElementById('admActionPin').value;
+  if(pin!==PASS){
+    const inp=document.getElementById('admActionPin');
+    inp.classList.add('shake');
+    document.getElementById('admActionErr').textContent='Senha incorreta.';
+    inp.value='';
+    setTimeout(()=>inp.classList.remove('shake'),450);
+    return;
+  }
+  closeM('mAdminAction');
+  if(!_pendingAction) return;
+  const {type, matchId}=_pendingAction;
+  _pendingAction=null;
+  if(type==='delete'){
+    try{await fD('matches/'+matchId);delete DB.matches[matchId];renderAll();}
+    catch(e){alert('Erro: '+e.message);}
+  } else if(type==='edit'){
+    openEdit(matchId);
+  }
+}
 // ── TIMER ──
 function startLT(ts){ stopLT(); function up(){const el=document.getElementById('liveTmr');if(!el)return;const d=Math.max(0,Math.floor((Date.now()-new Date(ts))/1000));const m=Math.floor(d/60),s=d%60;el.textContent='⏱ '+m+' min '+String(s).padStart(2,'0')+' s';} up(); _liveTimer=setInterval(up,1000); }
 function stopLT(){ if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;} }
