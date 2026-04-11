@@ -263,24 +263,48 @@ tr.tlast td{background:rgba(231,76,60,.08)}
 
 <!-- ADICIONAR À FILA (público) -->
 <div class="overlay" id="mAddQueue">
-  <div class="modal modal-wide">
-    <div class="modal-title">📋 Adicionar próximo jogo</div>
-    <div class="grid2">
-      <div>
-        <div style="font-weight:700;font-size:.84rem;margin-bottom:10px">Dupla AB</div>
-        <div class="field"><span class="label">Jogador A</span><select id="qaA"></select></div>
-        <div class="field"><span class="label">Jogador B</span><select id="qaB"></select></div>
-      </div>
-      <div>
-        <div style="font-weight:700;font-size:.84rem;margin-bottom:10px">Dupla CD</div>
-        <div class="field"><span class="label">Jogador C</span><select id="qaC"></select></div>
-        <div class="field"><span class="label">Jogador D</span><select id="qaD"></select></div>
+  <div class="modal" style="width:min(760px,100%)">
+    <div class="modal-title">📋 Gerar confronto</div>
+
+    <!-- Player selection -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <span class="label" style="margin:0">Selecione os jogadores (mín. 4)</span>
+      <div class="grp">
+        <button class="btn btn-ghost btn-xs" onclick="qaSelAll()">✓ Todos</button>
+        <button class="btn btn-ghost btn-xs" onclick="qaSelNone()">✕ Limpar</button>
       </div>
     </div>
+    <div id="qaPlayerList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface2);margin-bottom:14px"></div>
+
+    <!-- Generate buttons -->
+    <div class="grp" style="margin-bottom:14px">
+      <button class="btn btn-acc" onclick="qaGenerate('equilibrado')">⚖️ Equilibrado</button>
+      <button class="btn btn-ghost" onclick="qaGenerate('aleatorio')">🎲 Aleatório</button>
+    </div>
+
+    <!-- Generated match preview -->
+    <div id="qaResult" style="display:none">
+      <div style="font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Confronto gerado</div>
+      <div id="qaMatchCard" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:14px">
+        <div>
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">Dupla AB</div>
+          <div id="qaNameAB" style="font-weight:700;font-size:.92rem"></div>
+        </div>
+        <div style="font-size:1.2rem;font-weight:800;color:var(--muted)">vs</div>
+        <div>
+          <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px">Dupla CD</div>
+          <div id="qaNameCD" style="font-weight:700;font-size:.92rem"></div>
+        </div>
+      </div>
+      <div class="grp">
+        <button class="btn btn-acc" onclick="qaConfirm()">+ Adicionar à fila</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('qaResult').style.display='none'">🔄 Gerar outro</button>
+      </div>
+    </div>
+
     <div class="msg" id="msgAddQ"></div>
     <div class="mfooter">
-      <button class="btn btn-acc" onclick="submitAddQueue()">Adicionar à fila</button>
-      <button class="btn btn-ghost" onclick="closeModal('mAddQueue')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="closeModal('mAddQueue')">Fechar</button>
     </div>
   </div>
 </div>
@@ -537,6 +561,7 @@ const MULT  = {super:.90,'6-0/6-1':1.10,'6-2/6-3':1.05,outros:1.00};
 // ── STATE ──
 let FB = localStorage.getItem('bt_fb_url') || '';
 let DB = { config:{name:'Ranking Beach Tennis',season:''}, players:{}, matches:{}, queue:[], live:null, lastPositions:{} };
+let _prevPos = {}; // positions BEFORE last match — for variation arrows
 let _unlocked=false, _lockTimer=null, _liveTimer=null, _editId=null, _pendingAction=null, _pendingQueueId=null;
 let _genAvail={}, _genSug=[], _storyUrl=null;
 let _poll=null, _lastPos={};
@@ -557,7 +582,11 @@ async function loadAll() {
       if (d.players) DB.players = d.players;
       if (d.matches) DB.matches = d.matches;
       if (d.queue)        DB.queue        = Array.isArray(d.queue) ? d.queue : Object.values(d.queue||{});
-      if (d.lastPositions) DB.lastPositions = d.lastPositions;
+      if (d.lastPositions) {
+        DB.lastPositions = d.lastPositions;
+        // On first load, _prevPos = lastPositions (positions before last match)
+        if(Object.keys(_prevPos).length===0) _prevPos = d.lastPositions;
+      }
       DB.live = d.live || null;
     }
     renderAll();
@@ -642,8 +671,8 @@ function renderRank(){
   const curPos={};
   rk.forEach((p,i)=>curPos[p.id]=i+1);
 
-  // Previous positions: use DB.lastPositions (persisted from last save)
-  const prevPos=DB.lastPositions||{};
+  // Previous positions: snapshot taken before last match
+  const prevPos=_prevPos||{};
 
   // Persist new positions after every match (called from finishMatch)
   // Here we just use prevPos for display
@@ -679,17 +708,8 @@ function renderRank(){
     tb.appendChild(tr);
   });
   _lastPos=np;
-  // Save positions to Firebase if they changed (for variation arrows on next session)
-  const prevSaved=DB.lastPositions||{};
-  const changed=Object.keys(np).some(id=>prevSaved[id]!==np[id]);
-  if(changed&&FB){
-    DB.lastPositions=np;
-    // Debounce: only save after 3s of no changes
-    if(window._savePosTimer) clearTimeout(window._savePosTimer);
-    window._savePosTimer=setTimeout(async()=>{
-      try{await fS('lastPositions',np);}catch(_){}
-    },3000);
-  }
+  // NOTE: _prevPos is NOT updated here — only updated in finishMatch/doReset
+  // This ensures arrows persist across multiple render cycles
 }
 
 function renderQueue(){
@@ -1050,12 +1070,20 @@ async function finishMatch(){
     const m={id,aId:live.aId,bId:live.bId,cId:live.cId,dId:live.dId,gAB,gCD,date:new Date().toISOString()};
     await fS('matches/'+id,m); DB.matches[id]=m;
     await fD('live'); DB.live=null;
-    // Persist current ranking positions for variation arrows
+    // Save CURRENT positions as prevPos (before this match affects ELO)
+    // Actually compute() already includes this match — so snapshot before:
+    // We snapshot positions based on matches BEFORE this one
+    const rkBefore=Object.values(DB.matches)
+      .filter(mm=>mm.id!==id)
+      .reduce((acc,mm)=>{/* quick compute for prev positions */return acc;},{});
+    // Simpler: just capture current _lastPos as _prevPos before re-render
+    _prevPos={..._lastPos};
+    renderAll();
+    // After render, save new positions to Firebase for next session
     const rk2=compute();
     const pos2={};rk2.forEach((p,i)=>pos2[p.id]=i+1);
     DB.lastPositions=pos2;
     try{await fS('lastPositions',pos2);}catch(_){}
-    renderAll();
   }catch(e){alert(e.message);}
 }
 async function cancelMatch(){
@@ -1441,51 +1469,117 @@ function renderAllMatches(){
 function openRules(){ openM('mRules'); }
 
 
-// ── ADD TO QUEUE (public) ──
+// ── ADD TO QUEUE / GENERATOR (public) ──
+let _qaSelected = {}; // {playerId: true/false}
+let _qaPending  = null; // {aId,bId,cId,dId} pending confirmation
+
 function openAddQueue(){
-  if(!Object.keys(DB.players).length){alert('Nenhum jogador cadastrado ainda.');return;}
-  fillQueueSelects();
+  if(!Object.keys(DB.players).length){ alert('Nenhum jogador cadastrado ainda.'); return; }
+  // Init selection — all selected by default
+  const rk = compute();
+  rk.forEach(p => { if(_qaSelected[p.id]===undefined) _qaSelected[p.id]=true; });
+  _qaPending = null;
+  document.getElementById('qaResult').style.display='none';
   setMsg('msgAddQ','');
+  renderQaPlayers();
   openM('mAddQueue');
 }
 
-function fillQueueSelects(){
-  const rk=compute();
-  const ids=['qaA','qaB','qaC','qaD'];
-  function refresh(){
-    const sel={};
-    ids.forEach(id=>{sel[id]=document.getElementById(id)?.value||'';});
-    ids.forEach(id=>{
-      const s=document.getElementById(id); if(!s) return;
-      const cur=sel[id];
-      const taken=new Set(ids.filter(oid=>oid!==id&&sel[oid]).map(oid=>sel[oid]));
-      s.innerHTML='<option value="">— selecione —</option>';
-      rk.forEach(p=>{
-        if(taken.has(p.id)&&p.id!==cur) return;
-        const o=document.createElement('option');o.value=p.id;o.textContent=p.name;
-        if(p.id===cur) o.selected=true;
-        s.appendChild(o);
-      });
-    });
-  }
-  refresh();
-  ids.forEach(id=>{const s=document.getElementById(id);if(s) s.onchange=refresh;});
+function renderQaPlayers(){
+  const rk = compute();
+  const el = document.getElementById('qaPlayerList');
+  if(!el) return;
+  el.innerHTML = rk.map(p => `
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:7px;border:1px solid ${_qaSelected[p.id]?'rgba(212,168,67,.5)':'var(--border)'};background:${_qaSelected[p.id]?'rgba(212,168,67,.08)':'transparent'};transition:all .15s;font-size:.83rem">
+      <input type="checkbox" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0"
+        ${_qaSelected[p.id]?'checked':''} onchange="_qaSelected['${p.id}']=this.checked;renderQaPlayers()"/>
+      <div>
+        <div style="font-weight:600">${x(p.name)}</div>
+        <div style="font-size:.72rem;color:var(--muted)">${p.r.toFixed(0)} pts · ${p.w+p.l} jogos</div>
+      </div>
+    </label>`).join('');
 }
 
-async function submitAddQueue(){
-  const aId=document.getElementById('qaA').value, bId=document.getElementById('qaB').value;
-  const cId=document.getElementById('qaC').value, dId=document.getElementById('qaD').value;
-  if([aId,bId,cId,dId].some(id=>!id)){setMsg('msgAddQ','Selecione os 4 jogadores.','err');return;}
-  if(new Set([aId,bId,cId,dId]).size!==4){setMsg('msgAddQ','Os 4 jogadores devem ser diferentes.','err');return;}
-  if(!FB){setMsg('msgAddQ','Firebase não configurado.','err');return;}
-  try{
-    const q={id:'q_'+Date.now(),aId,bId,cId,dId};
-    DB.queue=[...(DB.queue||[]),q];
-    await fS('queue',DB.queue);
-    closeM('mAddQueue');
-    renderQueue(); renderQAdm();
-  }catch(e){setMsg('msgAddQ','❌ '+e.message,'err');}
+function qaSelAll() {
+  compute().forEach(p=>_qaSelected[p.id]=true);
+  renderQaPlayers();
 }
+function qaSelNone() {
+  Object.keys(_qaSelected).forEach(id=>_qaSelected[id]=false);
+  renderQaPlayers();
+}
+
+function qaGenerate(mode){
+  const rk = compute().filter(p=>_qaSelected[p.id]);
+  if(rk.length < 4){
+    setMsg('msgAddQ','Selecione pelo menos 4 jogadores.','err');
+    return;
+  }
+  setMsg('msgAddQ','');
+  document.getElementById('qaResult').style.display='none';
+
+  let pool = [...rk];
+  let aId,bId,cId,dId;
+
+  if(mode==='aleatorio'){
+    // Fisher-Yates shuffle, pick first 4
+    for(let i=pool.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]]=[pool[j],pool[i]];
+    }
+    [aId,bId,cId,dId] = [pool[0].id,pool[1].id,pool[2].id,pool[3].id];
+  } else {
+    // Equilibrado: minimize rating difference between teams
+    // Sort by rating desc, pick top 4 if more than 4 selected
+    const top4 = pool.slice(0,4).sort((a,b)=>b.r-a.r);
+    // Best pairing: 1st+4th vs 2nd+3rd (minimizes team rating gap)
+    aId = top4[0].id; bId = top4[3].id;
+    cId = top4[1].id; dId = top4[2].id;
+    // If more than 4 selected, try random pairs from top4 to find best balance
+    if(pool.length > 4){
+      // Try all 3 pairings of 4 players and pick most balanced
+      const p = top4;
+      const pairs = [
+        [p[0].id,p[1].id,p[2].id,p[3].id],
+        [p[0].id,p[2].id,p[1].id,p[3].id],
+        [p[0].id,p[3].id,p[1].id,p[2].id],
+      ];
+      const rating = id => pool.find(p=>p.id===id)?.r||R0;
+      let bestDiff = Infinity;
+      pairs.forEach(([a,b,cc,d])=>{
+        const diff = Math.abs((rating(a)+rating(b)) - (rating(cc)+rating(d)));
+        if(diff<bestDiff){ bestDiff=diff; aId=a;bId=b;cId=cc;dId=d; }
+      });
+    }
+  }
+
+  _qaPending = {aId,bId,cId,dId};
+
+  // Show preview
+  const nameAB = (DB.players[aId]?.name||'?') + ' & ' + (DB.players[bId]?.name||'?');
+  const nameCD = (DB.players[cId]?.name||'?') + ' & ' + (DB.players[dId]?.name||'?');
+  document.getElementById('qaNameAB').textContent = nameAB;
+  document.getElementById('qaNameCD').textContent = nameCD;
+  document.getElementById('qaResult').style.display = 'block';
+}
+
+async function qaConfirm(){
+  if(!_qaPending){ setMsg('msgAddQ','Gere um confronto primeiro.','err'); return; }
+  if(!FB){ setMsg('msgAddQ','Firebase não configurado.','err'); return; }
+  try{
+    const q = {id:'q_'+Date.now(), ..._qaPending};
+    DB.queue = [...(DB.queue||[]), q];
+    await fS('queue', DB.queue);
+    _qaPending = null;
+    document.getElementById('qaResult').style.display='none';
+    setMsg('msgAddQ','✅ Confronto adicionado à fila!','ok');
+    renderQueue(); renderQAdm();
+    setTimeout(()=>closeM('mAddQueue'), 1000);
+  } catch(e){ setMsg('msgAddQ','❌ '+e.message,'err'); }
+}
+
+// Keep old submitAddQueue as alias (used by admin flow)
+async function submitAddQueue(){ await qaConfirm(); }
 
 async function startFromQueue(qid){
   const q=(DB.queue||[]).find(x=>x.id===qid); if(!q) return;
@@ -1509,6 +1603,10 @@ function openScoreForQueue(qid){
   _pendingQueueId=q.id;
   openM('mLaunch');
 }
+
+// Stub fillQueueSelects (kept for compatibility)
+function fillQueueSelects(){}
+
 
 // ── TIMER ──
 function startLT(ts){ stopLT(); function up(){const el=document.getElementById('liveTmr');if(!el)return;const d=Math.max(0,Math.floor((Date.now()-new Date(ts))/1000));const m=Math.floor(d/60),s=d%60;el.textContent='⏱ '+m+' min '+String(s).padStart(2,'0')+' s';} up(); _liveTimer=setInterval(up,1000); }
